@@ -87,6 +87,10 @@ func (p *Player) Move() {
 }
 
 func ValidateScore(score, remaining int, out checkout.CheckoutType) error {
+	if score < 0 {
+		return fmt.Errorf("score must be a positive number, please enter again")
+	}
+
 	if score > 180 {
 		return fmt.Errorf("cannot achieve more than 180 points, please enter again")
 	}

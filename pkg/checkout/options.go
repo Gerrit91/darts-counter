@@ -24,7 +24,7 @@ func NewMaxThrowsOption(max int) *optionMaxThrows {
 	return &optionMaxThrows{max: max}
 }
 
-// NewCheckoutTypeOption defines the type of the checkout, e.g. double out or single out
+// NewCheckoutTypeOption defines the type of the checkout, e.g. double out or straight out
 func NewCheckoutTypeOption(out CheckoutType) *optionCheckoutType {
 	return &optionCheckoutType{out: out}
 }

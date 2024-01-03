@@ -32,11 +32,6 @@ func (c *Console) AskForScore() int {
 			continue
 		}
 
-		if score < 0 {
-			c.Println("must be positive number, please enter again")
-			continue
-		}
-
 		return score
 	}
 }

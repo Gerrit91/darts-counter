@@ -13,10 +13,10 @@ Counts remaining values for a game of darts and shows possible finishes.
 # - 1001: Game1001
 game: "301"
 
-# checkout specifies the checkout variant being played
+# checkout specifies how a player can finish the leg
 #
-# - single-out: player can finish with any score
-# - double-out: player must finish with a double score
+# - straight-out: player can finish with any shot
+# - double-out: player must finish with a double
 checkout: double-out
 
 # players: specifies the players that are playing the game

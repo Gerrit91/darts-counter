@@ -12,7 +12,8 @@ type calculator struct {
 
 	limit     int
 	maxThrows int
-	out       CheckoutType
+
+	out CheckoutType
 }
 
 func newCalculator(opts ...option) (*calculator, error) {
@@ -54,15 +55,15 @@ func (c *calculator) recurse(remaining, throw int) {
 		return
 	}
 
-	// first look for direct single-out wins
-	if c.out == CheckoutTypeSingleOut && (remaining <= 20 || remaining == BullsEye) {
+	// first look for immediate straight-out wins
+	if c.out == CheckoutTypeStraightOut && (remaining <= 20 || remaining == BullsEye) {
 		limitReached := c.append(checkout(NewScore(remaining)))
 		if limitReached {
 			return
 		}
 	}
 
-	// look for direct double-out wins
+	// look for immediate double-out wins
 	if remaining%2 == 0 && (remaining <= 40 || remaining == 2*BullsEye) {
 		for _, single := range singles() {
 			single := single
@@ -78,8 +79,8 @@ func (c *calculator) recurse(remaining, throw int) {
 		}
 	}
 
-	// look for direct triple-out wins
-	if c.out == CheckoutTypeSingleOut && remaining <= 60 {
+	// look for immediate triple-out wins
+	if c.out == CheckoutTypeStraightOut && remaining <= 60 {
 		for _, single := range singles() {
 			single := single
 
@@ -157,6 +158,11 @@ func (c *calculator) limitReached() bool {
 }
 
 func (c *calculator) append(cs *Checkout) bool {
+	if slices.ContainsFunc(c.checkouts, func(e *Checkout) bool {
+		return e.String() == cs.String()
+	}) {
+		return false
+	}
 	c.checkouts = append(c.checkouts, cs)
 	return c.limitReached()
 }

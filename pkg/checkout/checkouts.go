@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	CheckoutTypeSingleOut CheckoutType = "single-out"
-	CheckoutTypeDoubleOut CheckoutType = "double-out"
+	CheckoutTypeStraightOut CheckoutType = "straight-out"
+	CheckoutTypeDoubleOut   CheckoutType = "double-out"
 )
 
 type (
@@ -46,7 +46,7 @@ func (c *Checkout) prepend(score *Score) {
 
 func (c *Checkout) orderScores(out CheckoutType) {
 	switch out {
-	case CheckoutTypeSingleOut:
+	case CheckoutTypeStraightOut:
 		sort.Slice(c.scores, func(i, j int) bool {
 			return c.scores[j].Value() < c.scores[i].Value()
 		})
