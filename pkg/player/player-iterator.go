@@ -7,6 +7,7 @@ import (
 
 type (
 	PlayerIterator struct {
+		round         int
 		players       *list.List
 		currentPlayer *list.Element
 	}
@@ -17,6 +18,10 @@ var ErrGameFinished = fmt.Errorf("only one player left in the game")
 func (pi *PlayerIterator) Next() (*Player, error) {
 	if p, finished := pi.isFinished(); finished {
 		return p, ErrGameFinished
+	}
+
+	if pi.currentPlayer == pi.players.Front() {
+		pi.round++
 	}
 
 	p := pi.currentPlayer.Value.(*Player)
@@ -32,6 +37,10 @@ func (pi *PlayerIterator) Next() (*Player, error) {
 	}
 
 	return pi.Next()
+}
+
+func (pi *PlayerIterator) GetRound() int {
+	return pi.round
 }
 
 func (pi *PlayerIterator) isFinished() (*Player, bool) {

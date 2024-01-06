@@ -4,18 +4,22 @@ import (
 	"container/list"
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/Gerrit91/darts-counter/pkg/checkout"
 	"github.com/Gerrit91/darts-counter/pkg/util"
 )
 
 type Player struct {
-	name      string
-	c         *util.Console
-	out       checkout.CheckoutType
-	remaining int
-	rank      int
-	finished  bool
+	name       string
+	c          *util.Console
+	out        checkout.CheckoutType
+	in         checkout.CheckinType
+	remaining  int
+	startScore int
+	rank       int
+	finished   bool
 }
 
 type Players []*Player
@@ -45,21 +49,109 @@ func (ps Players) Names() []string {
 	return names
 }
 
-func New(name string, console *util.Console, out checkout.CheckoutType, remaining int) *Player {
+func New(name string, console *util.Console, out checkout.CheckoutType, in checkout.CheckinType, remaining int) *Player {
 	return &Player{
-		name:      name,
-		c:         console,
-		remaining: remaining,
-		out:       out,
+		name:       name,
+		c:          console,
+		remaining:  remaining,
+		startScore: remaining,
+		out:        out,
+		in:         in,
 	}
 }
 
 func (p *Player) Move() {
-	var score int
-	for {
-		score = p.c.AskForScore()
+	var (
+		score int
+		err   error
+	)
 
-		err := ValidateScore(score, p.remaining, p.out)
+	if p.remaining <= 0 {
+		p.finished = true
+		return
+	}
+
+	for {
+		p.c.Printf(`enter score ("s" to skip player, "e" to edit player's score): `)
+
+		input := p.c.Read()
+
+		if input == "s" {
+			return
+		}
+
+		if input == "e" {
+			p.c.Printf("enter new remaining score for %s: ", p.GetName())
+
+			remaining, err := strconv.Atoi(p.c.Read())
+			if err != nil {
+				p.c.Println("unable to parse input (%q), please enter again", err.Error())
+				continue
+			}
+
+			p.remaining = remaining
+			return
+		}
+
+		segments := strings.Split(input, ",")
+
+		switch len(segments) {
+		case 1:
+			s, err := checkout.ParseScore(input)
+			if err == nil {
+				if p.in == checkout.CheckinTypeDoubleIn && p.remaining == p.startScore {
+					if s.GetMultiplier() != checkout.Double {
+						p.c.Println("selected game required double-in, but did not start with double")
+						return
+					}
+				}
+
+				score = s.Value()
+			} else {
+				// user entered summed up score
+				score, err = strconv.Atoi(input)
+				if err != nil {
+					p.c.Println("unable to parse input (%q), please enter again", err.Error())
+					continue
+				}
+			}
+		case 2, 3:
+			var (
+				sum     int
+				partial *checkout.Score
+				err     error
+			)
+
+			for i, segment := range segments {
+				partial, err = checkout.ParseScore(segment)
+				if err != nil {
+					break
+				}
+
+				if i == 0 && p.in == checkout.CheckinTypeDoubleIn && p.remaining == p.startScore {
+					if partial.GetMultiplier() != checkout.Double {
+						p.c.Println("selected game required double-in, but did not start with double")
+						return
+					}
+				}
+
+				sum += partial.Value()
+			}
+
+			p.c.Println("summed up partially provided score: %d", sum)
+
+			if err != nil {
+				p.c.Println("unable to parse input (%q), please enter again", err.Error())
+				continue
+			}
+
+			score = sum
+		default:
+			p.c.Println("no more than three throws are allowed, please enter again")
+			continue
+		}
+
+		err = validateInput(score, p.remaining, p.out)
 		if err == nil {
 			break
 		}
@@ -70,7 +162,7 @@ func (p *Player) Move() {
 	newScore := p.remaining - score
 
 	if newScore < 0 {
-		p.c.Println("%s has exceeded the remaining score of %d", p.name, p.remaining)
+		p.c.Println("%s exceeded the remaining score of %d", p.name, p.remaining)
 		return
 	}
 
@@ -86,7 +178,7 @@ func (p *Player) Move() {
 	}
 }
 
-func ValidateScore(score, remaining int, out checkout.CheckoutType) error {
+func validateInput(score, remaining int, out checkout.CheckoutType) error {
 	if score < 0 {
 		return fmt.Errorf("score must be a positive number, please enter again")
 	}
@@ -96,14 +188,14 @@ func ValidateScore(score, remaining int, out checkout.CheckoutType) error {
 	}
 
 	if slices.Contains(checkout.BogeyNumbers(), score) {
-		return fmt.Errorf("not possible to achieve %d points in one turn, please enter again", score)
+		return fmt.Errorf("not possible to achieve %d points in one turn (bogey number), please enter again", score)
 	}
 
 	if remaining > 180 {
 		return nil
 	}
 
-	if len(checkout.For(score, checkout.NewCheckoutTypeOption(out))) == 0 {
+	if remaining-score == 0 && len(checkout.For(score, checkout.NewCheckoutTypeOption(out))) == 0 {
 		return fmt.Errorf("not possible to finish with %d points, please enter again", score)
 	}
 

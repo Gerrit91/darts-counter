@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -19,19 +18,8 @@ func (c *Console) Printf(format string, a ...any) {
 	fmt.Printf(format, a...)
 }
 
-func (c *Console) AskForScore() int {
-	c.Printf("enter score: ")
-
-	for {
-		reader := bufio.NewReader(os.Stdin)
-		text, _ := reader.ReadString('\n')
-
-		score, err := strconv.Atoi(strings.TrimSpace(text))
-		if err != nil {
-			c.Println("unable to parse input (%q), please enter again", err.Error())
-			continue
-		}
-
-		return score
-	}
+func (c *Console) Read() string {
+	reader := bufio.NewReader(os.Stdin)
+	text, _ := reader.ReadString('\n')
+	return strings.TrimSpace(text)
 }

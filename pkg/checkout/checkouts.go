@@ -8,10 +8,14 @@ import (
 const (
 	CheckoutTypeStraightOut CheckoutType = "straight-out"
 	CheckoutTypeDoubleOut   CheckoutType = "double-out"
+
+	CheckinTypeStraightIn CheckinType = "straight-in"
+	CheckinTypeDoubleIn   CheckinType = "double-in"
 )
 
 type (
 	CheckoutType string
+	CheckinType  string
 
 	Checkout struct {
 		scores []*Score

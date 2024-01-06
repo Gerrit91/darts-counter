@@ -17,6 +17,7 @@ import (
 type GameType string
 
 const (
+	GameType101  GameType = "101"
 	GameType301  GameType = "301"
 	GameType501  GameType = "501"
 	GameType701  GameType = "701"
@@ -27,6 +28,7 @@ type Game struct {
 	c       *util.Console
 	t       GameType
 	out     checkout.CheckoutType
+	in      checkout.CheckinType
 	players player.Players
 }
 
@@ -36,23 +38,29 @@ func NewGame(c *util.Console) (*Game, error) {
 		return nil, err
 	}
 
+	err = config.Validate()
+	if err != nil {
+		return nil, err
+	}
+
 	game := &Game{
 		c:   c,
 		t:   config.Game,
 		out: config.Checkout,
+		in:  config.Checkin,
 	}
 
 	count := 0
 
 	switch gt := game.t; gt {
-	case GameType301, GameType501, GameType701, GameType1001:
+	case GameType101, GameType301, GameType501, GameType701, GameType1001:
 		count, _ = strconv.Atoi(string(gt))
 	default:
 		return nil, fmt.Errorf("unknown game: %s", game.t)
 	}
 
 	for _, p := range config.Players {
-		game.players = append(game.players, player.New(p.Name, game.c, game.out, count))
+		game.players = append(game.players, player.New(p.Name, game.c, game.out, game.in, count))
 	}
 
 	return game, nil
@@ -82,7 +90,7 @@ func (g *Game) Run() {
 
 		g.showOverview(p)
 
-		g.c.Println("player's turn: %s", p.GetName())
+		g.c.Println("round %d, player's turn: %s", iter.GetRound(), p.GetName())
 
 		p.Move()
 

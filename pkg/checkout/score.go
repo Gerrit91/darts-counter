@@ -1,6 +1,9 @@
 package checkout
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+)
 
 const (
 	BullsEye = 25
@@ -21,6 +24,27 @@ func NewScore(score int) *Score {
 	}
 }
 
+func ParseScore(input string) (*Score, error) {
+	var (
+		multiplier Multiplier
+	)
+
+	if strings.HasPrefix(input, string(Triple)) {
+		multiplier = Triple
+		input = strings.TrimPrefix(input, string(Triple))
+	} else if strings.HasPrefix(input, string(Double)) {
+		multiplier = Double
+		input = strings.TrimPrefix(input, string(Double))
+	}
+
+	score, err := strconv.Atoi(input)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewScore(score).WithMultiplier(multiplier), nil
+}
+
 func (s *Score) WithMultiplier(m Multiplier) *Score {
 	s.multiplier = m
 	return s
@@ -35,6 +59,10 @@ func (s *Score) Value() int {
 	}
 
 	return value
+}
+
+func (s *Score) GetMultiplier() Multiplier {
+	return s.multiplier
 }
 
 func (s *Score) String() string {
