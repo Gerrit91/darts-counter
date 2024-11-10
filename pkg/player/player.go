@@ -28,7 +28,6 @@ func (ps Players) Iterator() *PlayerIterator {
 	players := list.New()
 
 	for _, p := range ps {
-		p := p
 		players.PushBack(p)
 	}
 
@@ -42,7 +41,6 @@ func (ps Players) Names() []string {
 	var names []string
 
 	for _, p := range ps {
-		p := p
 		names = append(names, p.name)
 	}
 
