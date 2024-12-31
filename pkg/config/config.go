@@ -1,4 +1,4 @@
-package game
+package config
 
 import (
 	"fmt"
@@ -8,6 +8,16 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+type GameType string
+
+const (
+	GameType101  GameType = "101"
+	GameType301  GameType = "301"
+	GameType501  GameType = "501"
+	GameType701  GameType = "701"
+	GameType1001 GameType = "1001"
+)
+
 type Config struct {
 	Game     GameType              `json:"game"`
 	Checkout checkout.CheckoutType `json:"checkout"`
@@ -15,6 +25,12 @@ type Config struct {
 	Players  []struct {
 		Name string `json:"name"`
 	} `json:"players"`
+	Statistics *StatisticsConfig `json:"statistics"`
+}
+
+type StatisticsConfig struct {
+	Enabled bool   `json:"enabled"`
+	Path    string `json:"path"`
 }
 
 func ReadConfig() (*Config, error) {
@@ -46,6 +62,13 @@ func (c *Config) Default() {
 
 	if c.Game == "" {
 		c.Game = GameType501
+	}
+
+	if c.Statistics == nil {
+		c.Statistics = &StatisticsConfig{
+			Enabled: true,
+			Path:    "darts-counter.db",
+		}
 	}
 }
 

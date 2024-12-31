@@ -16,6 +16,7 @@ type Player struct {
 	c          *util.Console
 	out        checkout.CheckoutType
 	in         checkout.CheckinType
+	lastScore  int
 	remaining  int
 	startScore int
 	rank       int
@@ -64,6 +65,10 @@ func (p *Player) Move() {
 		err   error
 	)
 
+	defer func() {
+		p.lastScore = score
+	}()
+
 	if p.remaining <= 0 {
 		p.finished = true
 		return
@@ -88,6 +93,7 @@ func (p *Player) Move() {
 			}
 
 			p.remaining = remaining
+
 			return
 		}
 
@@ -210,6 +216,10 @@ func (p *Player) GetRank() int {
 
 func (p *Player) GetRemaining() int {
 	return p.remaining
+}
+
+func (p *Player) LastSore() int {
+	return p.lastScore
 }
 
 func (p *Player) HasFinished() bool {

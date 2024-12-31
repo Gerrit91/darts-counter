@@ -1,7 +1,7 @@
 ---
 game: "301"
-checkout: double-out
+checkout: straight-out
 players:
-  - name: Andreas
   - name: Conni
   - name: Gerrit
+  - name: Andreas
