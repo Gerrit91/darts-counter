@@ -30,4 +30,11 @@ players:
   - name: Andreas
   - name: Conni
   - name: Gerrit
+
+# statistics: specifies whether played games should be stored to disk
+statistics:
+  # enables game statistics
+  enabled: true
+  # the path to the database file
+  path: darts-counter.db
 ```
