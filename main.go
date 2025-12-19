@@ -16,7 +16,6 @@ import (
 	"github.com/Gerrit91/darts-counter/pkg/util"
 	"github.com/metal-stack/metal-lib/pkg/genericcli/printers"
 	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v3"
 )
 
@@ -44,7 +43,8 @@ func run() error {
 	}
 
 	printerConfig := &printers.TablePrinterConfig{
-		Markdown: true,
+		Markdown:        true,
+		DisableAutoWrap: true,
 	}
 
 	printer := printers.NewTablePrinter(printerConfig)
@@ -132,10 +132,6 @@ func run() error {
 									rows = append(rows, row)
 								}
 
-								printer.MutateTable(func(table *tablewriter.Table) {
-									table.SetAutoWrapText(false)
-								})
-
 								return header, rows, nil
 							}
 
@@ -173,10 +169,6 @@ func run() error {
 
 									rows = append(rows, row)
 								}
-
-								printer.MutateTable(func(table *tablewriter.Table) {
-									table.SetAutoWrapText(false)
-								})
 
 								return header, rows, nil
 							}

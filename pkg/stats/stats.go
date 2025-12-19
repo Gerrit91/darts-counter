@@ -34,8 +34,14 @@ type (
 	Move struct {
 		Round     int    `json:"round"`
 		Player    string `json:"player"`
-		Score     int    `json:"score"`
+		Score     Score  `json:"score"`
 		Remaining int    `json:"remaining"`
+		Duration  string `json:"duration"`
+	}
+
+	Score struct {
+		Total    int      `json:"total"`
+		Partials []string `json:"partials"`
 	}
 
 	PlayerStats struct {

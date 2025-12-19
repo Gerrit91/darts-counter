@@ -1,6 +1,7 @@
 package checkout
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -40,6 +41,13 @@ func ParseScore(input string) (*Score, error) {
 	score, err := strconv.Atoi(input)
 	if err != nil {
 		return nil, err
+	}
+
+	switch {
+	case score <= 0:
+		return nil, fmt.Errorf("score must be greater than 0")
+	case score > 20 && score != 25:
+		return nil, fmt.Errorf("score must be between 1 and 20 (or 25 for bullseye)")
 	}
 
 	return NewScore(score).WithMultiplier(multiplier), nil

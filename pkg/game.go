@@ -15,7 +15,6 @@ import (
 	"github.com/Gerrit91/darts-counter/pkg/util"
 	"github.com/google/uuid"
 	"github.com/metal-stack/metal-lib/pkg/genericcli/printers"
-	"github.com/olekukonko/tablewriter"
 )
 
 type Game struct {
@@ -29,8 +28,13 @@ type Game struct {
 }
 
 func NewGame(console *util.Console, c *config.Config, s stats.Stats) (*Game, error) {
+	uuid, err := uuid.NewV7()
+	if err != nil {
+		return nil, fmt.Errorf("unable to generate uuid: %w", err)
+	}
+
 	game := &Game{
-		id:  uuid.New().String(),
+		id:  uuid.String(),
 		c:   console,
 		t:   c.Game,
 		out: c.Checkout,
@@ -48,7 +52,7 @@ func NewGame(console *util.Console, c *config.Config, s stats.Stats) (*Game, err
 	}
 
 	for _, p := range c.Players {
-		game.players = append(game.players, player.New(p.Name, game.c, game.out, game.in, count))
+		game.players = append(game.players, player.New(p.Name, game.c, game.out, game.in, count, c.Statistics.Enabled))
 	}
 
 	return game, nil
@@ -111,11 +115,19 @@ func (g *Game) Run() {
 
 		p.Move()
 
+		score := stats.Score{
+			Total: p.LastScore(),
+		}
+		for _, partial := range p.LastPartials() {
+			score.Partials = append(score.Partials, partial.String())
+		}
+
 		moves = append(moves, stats.Move{
 			Round:     iter.GetRound(),
 			Player:    p.GetName(),
-			Score:     p.LastSore(),
+			Score:     score,
 			Remaining: p.GetRemaining(),
+			Duration:  p.MoveDuration().String(),
 		})
 
 		if p.HasFinished() {
@@ -169,10 +181,6 @@ func (g *Game) showOverview(playerAtTurn *player.Player) {
 
 			rows = append(rows, row)
 		}
-
-		printer.MutateTable(func(table *tablewriter.Table) {
-			table.SetAutoWrapText(false)
-		})
 
 		return header, rows, nil
 	}
