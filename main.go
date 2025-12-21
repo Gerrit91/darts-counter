@@ -1,185 +1,94 @@
 package main
 
 import (
-	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
 
 	game "github.com/Gerrit91/darts-counter/pkg"
 	"github.com/Gerrit91/darts-counter/pkg/config"
 	"github.com/Gerrit91/darts-counter/pkg/stats"
-	"github.com/Gerrit91/darts-counter/pkg/util"
-	"github.com/metal-stack/metal-lib/pkg/genericcli/printers"
-	"github.com/metal-stack/metal-lib/pkg/pointer"
-	"github.com/urfave/cli/v3"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func main() {
-	if err := run(); err != nil {
-		slog.Error("error running darts-counter", "error", err)
-		os.Exit(1)
-	}
-}
-
-func run() error {
 	config, err := config.ReadConfig()
 	if err != nil {
-		return err
+		slog.Error("error reading config", "error", err)
+		os.Exit(1)
 	}
 
 	err = config.Validate()
 	if err != nil {
-		return err
+		slog.Error("invalid config", "error", err)
+		os.Exit(1)
 	}
 
-	s, err := stats.New(config.Statistics)
+	log, err := initLogger(config)
+	if err != nil {
+		slog.Error("error initializing logger", "error", err)
+		os.Exit(1)
+	}
+
+	if err := run(config, log); err != nil {
+		log.Error("error running darts-counter", "error", err)
+		os.Exit(1)
+	}
+}
+
+func initLogger(config *config.Config) (*slog.Logger, error) {
+	var log *slog.Logger
+	if config.Logging.Enabled {
+		var level slog.Level
+
+		err := level.UnmarshalText([]byte(config.Logging.Level))
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse log level: %w", err)
+		}
+
+		logFile, err := os.Create(config.Logging.Path)
+		if err != nil {
+			return nil, fmt.Errorf("unable to open log file: %w", err)
+		}
+		defer func() {
+			_ = logFile.Close()
+		}()
+
+		log = slog.New(slog.NewTextHandler(logFile, &slog.HandlerOptions{Level: level}))
+	} else {
+		log = slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{}))
+	}
+
+	return log, nil
+}
+
+func run(config *config.Config, log *slog.Logger) error {
+	s, err := stats.New(log, config.Statistics)
 	if err != nil {
 		return err
 	}
 
-	printerConfig := &printers.TablePrinterConfig{
-		Markdown:        true,
-		DisableAutoWrap: true,
+	if config.Statistics.Enabled {
+		log.Info("statistics are enabled", "db-path", config.Statistics.Path)
+	} else {
+		log.Info("statistics are disabled")
 	}
 
-	printer := printers.NewTablePrinter(printerConfig)
+	log.Info("launching main menu")
 
-	cmd := &cli.Command{
-		Name:  "darts-counter",
-		Usage: "Counts remaining scores for a game of darts and shows possible finishes.",
-		Action: func(context.Context, *cli.Command) error {
-			g, err := game.NewGame(&util.Console{}, config, s)
-			if err != nil {
-				return fmt.Errorf("error creating new game: %w", err)
-			}
+	var (
+		m = game.NewMainMenu(log, config, s)
+		p = tea.NewProgram(m,
+			tea.WithAltScreen(),
+			tea.WithMouseCellMotion(),
+		)
+	)
 
-			g.Run()
-
-			return nil
-		},
-		Commands: []*cli.Command{
-			{
-				Name: "game-stats",
-				Commands: []*cli.Command{
-					{
-						Name: "delete",
-						Flags: []cli.Flag{
-							&cli.StringFlag{
-								Name:     "id",
-								Required: true,
-							},
-						},
-						Action: func(ctx context.Context, c *cli.Command) error {
-							return s.DeleteGameStats(c.String("id"))
-						},
-					},
-					{
-						Name: "describe",
-						Flags: []cli.Flag{
-							&cli.StringFlag{
-								Name:     "id",
-								Required: true,
-							},
-						},
-						Action: func(ctx context.Context, c *cli.Command) error {
-							stats, err := s.GetGameStats(stats.IdFilter(c.String("id")))
-							if err != nil {
-								return err
-							}
-
-							return printers.NewJSONPrinter().Print(pointer.FirstOrZero(stats))
-						},
-					},
-					{
-						Name:    "list",
-						Aliases: []string{"ls"},
-						Action: func(ctx context.Context, c *cli.Command) error {
-							gs, err := s.GetGameStats()
-							if err != nil {
-								return err
-							}
-
-							printerConfig.ToHeaderAndRows = func(_ any, wide bool) ([]string, [][]string, error) {
-								header := []string{"type", "start", "rounds", "took", "ranks", "id"}
-								var rows [][]string
-
-								for _, stats := range gs {
-									start := ""
-									if !stats.Start.IsZero() {
-										start = stats.Start.Local().Format("02.01.2006, 15:04:05")
-									}
-
-									took := ""
-									if !stats.End.IsZero() {
-										took = stats.End.Sub(stats.Start).Truncate(time.Second).String()
-									}
-
-									var ranks []string
-									for rank, name := range stats.Ranks {
-										ranks = append(ranks, fmt.Sprintf("%d. %s", rank, name))
-									}
-									sort.Slice(ranks, func(i, j int) bool {
-										return ranks[i] < ranks[j] // TODO: improve
-									})
-
-									row := []string{string(stats.GameType), start, strconv.Itoa(stats.Rounds), took, strings.Join(ranks, "\n"), stats.ID}
-
-									rows = append(rows, row)
-								}
-
-								return header, rows, nil
-							}
-
-							return printer.Print(nil)
-						},
-					},
-				},
-			},
-			{
-				Name: "player-stats",
-				Commands: []*cli.Command{
-					{
-						Name:    "list",
-						Aliases: []string{"ls"},
-						Action: func(ctx context.Context, c *cli.Command) error {
-							ps, err := s.GetPlayerStats()
-							if err != nil {
-								return err
-							}
-
-							printerConfig.ToHeaderAndRows = func(_ any, wide bool) ([]string, [][]string, error) {
-								header := []string{"id", "games played", "ranks"}
-								var rows [][]string
-
-								for _, stats := range ps {
-									var ranks []string
-									for rank, count := range stats.RanksCount {
-										ranks = append(ranks, fmt.Sprintf("%d. (%d times)", rank, count))
-									}
-									sort.Slice(ranks, func(i, j int) bool {
-										return ranks[i] < ranks[j] // TODO: improve
-									})
-
-									row := []string{stats.ID, strconv.Itoa(stats.GamesPlayed), strings.Join(ranks, "\n")}
-
-									rows = append(rows, row)
-								}
-
-								return header, rows, nil
-							}
-
-							return printer.Print(ps)
-						},
-					},
-				},
-			},
-		},
+	if _, err := p.Run(); err != nil {
+		return err
 	}
 
-	return cmd.Run(context.Background(), os.Args)
+	return nil
 }

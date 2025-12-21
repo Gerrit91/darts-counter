@@ -2,12 +2,16 @@ package stats
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
+	"time"
 
 	"github.com/Gerrit91/darts-counter/pkg/config"
 
 	bolt "go.etcd.io/bbolt"
+	berrors "go.etcd.io/bbolt/errors"
 )
 
 var (
@@ -15,61 +19,12 @@ var (
 )
 
 type boltImpl struct {
-	c  *config.StatisticsConfig
-	db *bolt.DB
+	log *slog.Logger
+	c   *config.StatisticsConfig
+	db  *bolt.DB
 }
 
-func (b *boltImpl) GetPlayerStats(filterOpts ...filter) ([]*PlayerStats, error) {
-	playerMap := map[string]*PlayerStats{}
-
-	err := b.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket(gamesBucket)
-
-		b.ForEach(func(_, v []byte) error {
-			var s *GameStats
-			err := json.Unmarshal(v, &s)
-			if err != nil {
-				return err
-			}
-
-			for _, id := range s.Players {
-				p, ok := playerMap[id]
-				if !ok {
-					p = &PlayerStats{
-						ID:         id,
-						RanksCount: map[int]int{},
-					}
-				}
-
-				p.GamesPlayed++
-
-				playerMap[id] = p
-			}
-
-			for rank, player := range s.Ranks {
-				p := playerMap[player]
-
-				p.RanksCount[rank] += 1
-			}
-
-			return nil
-		})
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var ps []*PlayerStats
-	for _, p := range playerMap {
-		ps = append(ps, p)
-	}
-
-	return ps, nil
-}
-
-func (b *boltImpl) GetGameStats(filterOpts ...filter) ([]*GameStats, error) {
+func (b *boltImpl) ListGameStats(filterOpts ...filter) ([]*GameStats, error) {
 	var gs []*GameStats
 
 	for _, opt := range filterOpts {
@@ -106,7 +61,7 @@ func (b *boltImpl) GetGameStats(filterOpts ...filter) ([]*GameStats, error) {
 	err := b.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(gamesBucket)
 
-		b.ForEach(func(k, v []byte) error {
+		err := b.ForEach(func(k, v []byte) error {
 			var s *GameStats
 			err := json.Unmarshal(v, &s)
 			if err != nil {
@@ -117,6 +72,9 @@ func (b *boltImpl) GetGameStats(filterOpts ...filter) ([]*GameStats, error) {
 
 			return nil
 		})
+		if err != nil {
+			return err
+		}
 
 		return nil
 	})
@@ -152,22 +110,39 @@ func (b *boltImpl) DeleteGameStats(id string) error {
 	})
 }
 
+func (b *boltImpl) Close() {
+	if b.db != nil {
+		if err := b.db.Close(); err != nil {
+			b.log.Error("error closing data store", "error", err)
+		}
+	}
+}
+
+func (*boltImpl) Enabled() bool {
+	return true
+}
+
 func (b *boltImpl) initializeDatastore() error {
-	db, err := bolt.Open(b.c.Path, 0600, nil)
+	db, err := bolt.Open(b.c.Path, 0600, &bolt.Options{
+		Timeout: 2 * time.Second,
+	})
 	if err != nil {
 		return fmt.Errorf("unable to open db: %w", err)
 	}
 
 	b.db = db
 
-	db.Update(func(tx *bolt.Tx) error {
+	err = db.Update(func(tx *bolt.Tx) error {
 		_, err = tx.CreateBucket(gamesBucket)
 		if err != nil {
-			return fmt.Errorf("create bucket: %s", err)
+			return fmt.Errorf("create bucket: %w", err)
 		}
 
 		return nil
 	})
+	if err != nil && !errors.Is(err, berrors.ErrBucketExists) {
+		return err
+	}
 
 	return nil
 }

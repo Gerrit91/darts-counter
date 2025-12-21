@@ -1,27 +1,22 @@
 package player
 
 import (
-	"container/list"
 	"fmt"
-	"os"
 	"slices"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/Gerrit91/darts-counter/pkg/checkout"
-	"github.com/Gerrit91/darts-counter/pkg/util"
+)
+
+var (
+	ErrOnlyOnePlayerLeft = fmt.Errorf("only one player left in the game")
+	ErrInvalidInput      = fmt.Errorf("invalid input")
 )
 
 type (
 	Player struct {
 		name         string
-		c            *util.Console
 		out          checkout.CheckoutType
 		in           checkout.CheckinType
-		lastScore    int
-		lastPartials []*checkout.Score
-		moveDuration time.Duration
 		remaining    int
 		startScore   int
 		rank         int
@@ -31,19 +26,6 @@ type (
 
 	Players []*Player
 )
-
-func (ps Players) Iterator() *PlayerIterator {
-	players := list.New()
-
-	for _, p := range ps {
-		players.PushBack(p)
-	}
-
-	return &PlayerIterator{
-		players:       players,
-		currentPlayer: players.Front(),
-	}
-}
 
 func (ps Players) Names() []string {
 	var names []string
@@ -55,10 +37,9 @@ func (ps Players) Names() []string {
 	return names
 }
 
-func New(name string, console *util.Console, out checkout.CheckoutType, in checkout.CheckinType, remaining int, statsEnabled bool) *Player {
+func New(name string, out checkout.CheckoutType, in checkout.CheckinType, remaining int, statsEnabled bool) *Player {
 	return &Player{
 		name:         name,
-		c:            console,
 		remaining:    remaining,
 		startScore:   remaining,
 		out:          out,
@@ -67,178 +48,81 @@ func New(name string, console *util.Console, out checkout.CheckoutType, in check
 	}
 }
 
-func (p *Player) Move() {
-	var (
-		total     int
-		scores    []*checkout.Score
-		err       error
-		moveStart = time.Now()
-	)
-
-	defer func() {
-		p.lastScore = total
-		p.lastPartials = scores
-		p.moveDuration = time.Since(moveStart)
-	}()
-
-	if p.remaining <= 0 {
-		p.finished = true
-		return
+func (p *Player) Move(scores []*checkout.Score, total int) error {
+	err := p.validateInput(scores, total)
+	if err != nil {
+		return err
 	}
 
-	for {
-		scores = nil
+	p.remaining = p.remaining - total
 
-		p.c.Printf(`enter score ("s" to skip player, "e" to edit player's score): `)
+	if p.remaining == 0 {
+		p.finished = true
+	}
 
-		input := p.c.Read()
+	return nil
+}
 
-		if input == "s" {
-			return
+func (p *Player) Edit(total int) error {
+	if total < 0 {
+		return fmt.Errorf("%w: unable to set remaining score below zero", ErrInvalidInput)
+	}
+
+	if p.remaining == 0 && total > 0 {
+		p.finished = false
+	}
+
+	p.remaining = total
+
+	if p.remaining == 0 {
+		p.finished = true
+	}
+
+	return nil
+}
+
+func (p *Player) validateInput(scores []*checkout.Score, total int) error {
+	if p.in == checkout.CheckinTypeDoubleIn && p.remaining == p.startScore {
+		if len(scores) != 0 && scores[0].GetMultiplier() != checkout.Double {
+			return fmt.Errorf("selected game requires double-in, but did not start with double")
 		}
+	}
 
-		if input == "e" {
-			p.c.Printf("enter new remaining score for %s: ", p.GetName())
+	if total < 0 {
+		return fmt.Errorf("%w: score must be a positive number", ErrInvalidInput)
+	}
 
-			remaining, err := strconv.Atoi(p.c.Read())
-			if err != nil {
-				p.c.Println("unable to parse input (%q), please enter again", err.Error())
-				continue
-			}
+	if total > 180 {
+		return fmt.Errorf("%w: cannot achieve more than 180 points", ErrInvalidInput)
+	}
 
-			if p.remaining-remaining < 0 {
-				p.c.Println("unable to set remaining score below zero, please enter again")
-				continue
-			}
-
-			p.remaining = remaining
-
-			if p.remaining == 0 {
-				p.finished = true
-			}
-
-			return
-		}
-
-		if input == "q" {
-			if err := p.exitPrompt(); err != nil {
-				p.c.Println(err.Error())
-				continue
-			}
-		}
-
-		segments := strings.Split(input, ",") // allow both comma and space separated
-		segments = strings.Fields(strings.Join(segments, " "))
-
-		switch len(segments) {
-		case 1:
-			s, err := checkout.ParseScore(input)
-			if err == nil {
-				if p.in == checkout.CheckinTypeDoubleIn && p.remaining == p.startScore {
-					if s.GetMultiplier() != checkout.Double {
-						p.c.Println("selected game required double-in, but did not start with double")
-						return
-					}
-				}
-
-				total = s.Value()
-				scores = append(scores, s)
-			} else {
-				// user entered summed up score
-				total, err = strconv.Atoi(input)
-				if err != nil {
-					p.c.Println("unable to parse input (%q), please enter again", err.Error())
-					continue
-				}
-
-				if p.statsEnabled {
-					p.c.Println("when statistics are enabled it's not allowed to enter summed up scores")
-					continue
-				}
-			}
-		case 2, 3:
-			var (
-				sum     int
-				partial *checkout.Score
-				err     error
-			)
-
-			for i, segment := range segments {
-				partial, err = checkout.ParseScore(segment)
-				if err != nil {
-					break
-				}
-
-				if i == 0 && p.in == checkout.CheckinTypeDoubleIn && p.remaining == p.startScore {
-					if partial.GetMultiplier() != checkout.Double {
-						p.c.Println("selected game required double-in, but did not start with double")
-						return
-					}
-				}
-
-				sum += partial.Value()
-				scores = append(scores, partial)
-			}
-
-			p.c.Println("summed up partially provided score: %d", sum)
-
-			if err != nil {
-				p.c.Println("unable to parse input (%q), please enter again", err.Error())
-				continue
-			}
-
-			total = sum
-		default:
-			p.c.Println("no more than three throws are allowed, please enter again")
-			continue
-		}
-
-		err = validateInput(total, p.remaining, p.out)
-		if err == nil {
-			break
-		}
-
-		p.c.Println(err.Error())
+	if slices.Contains(checkout.BogeyNumbers(), total) {
+		return fmt.Errorf("%w: not possible to achieve %d points in one turn (bogey number)", ErrInvalidInput, total)
 	}
 
 	newScore := p.remaining - total
 
 	if newScore < 0 {
-		p.c.Println("%s exceeded the remaining score of %d", p.name, p.remaining)
-		return
+		return fmt.Errorf("%s exceeded the remaining score of %d", p.name, p.remaining)
 	}
 
 	if p.out == checkout.CheckoutTypeDoubleOut && newScore == 1 {
-		p.c.Println("in double-out, remaining 1 is considered overshoot")
-		return
+		return fmt.Errorf("in double-out games, remaining 1 is considered overshoot")
 	}
 
-	p.remaining = newScore
-
-	if p.remaining == 0 {
-		p.finished = true
-	}
-}
-
-func validateInput(score, remaining int, out checkout.CheckoutType) error {
-	if score < 0 {
-		return fmt.Errorf("score must be a positive number, please enter again")
+	if p.out == checkout.CheckoutTypeDoubleOut && newScore == 0 {
+		if len(scores) != 0 && scores[len(scores)-1].GetMultiplier() != checkout.Double {
+			return fmt.Errorf("selected game requires double-out, but did not checkout with double")
+		}
 	}
 
-	if score > 180 {
-		return fmt.Errorf("cannot achieve more than 180 points, please enter again")
-	}
-
-	if slices.Contains(checkout.BogeyNumbers(), score) {
-		return fmt.Errorf("not possible to achieve %d points in one turn (bogey number), please enter again", score)
-	}
-
-	if remaining > 180 {
+	if p.remaining > 180 {
+		// early skip to prevent unnecessary checkout calculation
 		return nil
 	}
 
-	if remaining-score == 0 && len(checkout.For(score, checkout.NewCheckoutTypeOption(out))) == 0 {
-		return fmt.Errorf("not possible to finish with %d points, please enter again", score)
+	if p.remaining-total == 0 && len(checkout.For(total, checkout.NewCheckoutTypeOption(p.out))) == 0 {
+		return fmt.Errorf("%w: not possible to finish with %d points", ErrInvalidInput, total)
 	}
 
 	return nil
@@ -256,40 +140,10 @@ func (p *Player) GetRemaining() int {
 	return p.remaining
 }
 
-func (p *Player) LastScore() int {
-	return p.lastScore
-}
-
-func (p *Player) LastPartials() []*checkout.Score {
-	return p.lastPartials
-}
-
-func (p *Player) MoveDuration() time.Duration {
-	return p.moveDuration
-}
-
 func (p *Player) HasFinished() bool {
 	return p.finished
 }
 
 func (p *Player) SetRank(rank int) {
 	p.rank = rank
-}
-
-func (p *Player) exitPrompt() error {
-	p.c.Printf("Do you really want to quit the game? [y/N]: ")
-
-	text := p.c.Read()
-
-	if text == "" {
-		text = "N"
-	}
-
-	for _, accepted := range []string{"yes", "y"} {
-		if strings.EqualFold(text, accepted) {
-			os.Exit(0)
-		}
-	}
-
-	return fmt.Errorf("not exiting due to given answer (%q)", text)
 }
