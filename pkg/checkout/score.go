@@ -38,6 +38,13 @@ func ParseScore(input string) (*Score, error) {
 		input = strings.TrimPrefix(input, string(Double))
 	}
 
+	if input == "B" {
+		if multiplier == Triple {
+			return nil, fmt.Errorf("there is no triple bullseye")
+		}
+		return NewScore(BullsEye).WithMultiplier(multiplier), nil
+	}
+
 	score, err := strconv.Atoi(input)
 	if err != nil {
 		return nil, err
@@ -46,8 +53,8 @@ func ParseScore(input string) (*Score, error) {
 	switch {
 	case score <= 0:
 		return nil, fmt.Errorf("score must be greater than 0")
-	case score > 20 && score != 25:
-		return nil, fmt.Errorf("score must be between 1 and 20 (or 25 for bullseye)")
+	case score > 20:
+		return nil, fmt.Errorf("score must be between 1 and 20 (or B for bullseye)")
 	}
 
 	return NewScore(score).WithMultiplier(multiplier), nil
