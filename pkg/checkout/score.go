@@ -111,8 +111,8 @@ func (m Multiplier) Value() int {
 func singles() []*Score {
 	var s []*Score
 
-	for i := 20; i > 0; i-- {
-		s = append(s, NewScore(i))
+	for i := range 20 {
+		s = append(s, NewScore(20-i))
 	}
 
 	// bullseye is harder to score than other singles, so put it to the end

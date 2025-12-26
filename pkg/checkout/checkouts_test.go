@@ -92,6 +92,12 @@ func Test_For(t *testing.T) {
 			wantDouble:   "B → D18, 11 → DB",
 		},
 		{
+			score:        71,
+			limit:        2,
+			wantStraight: "11 → T20, 14 → T19",
+			wantDouble:   "T7 → DB, T11 → D19",
+		},
+		{
 			score:        85,
 			limit:        2,
 			wantStraight: "B → T20, D14 → T19",
