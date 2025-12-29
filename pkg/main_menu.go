@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/Gerrit91/darts-counter/pkg/config"
-	"github.com/Gerrit91/darts-counter/pkg/stats"
+	"github.com/Gerrit91/darts-counter/pkg/datastore"
 
 	"github.com/charmbracelet/bubbles/cursor"
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,7 +16,7 @@ type (
 	mainMenu struct {
 		cfg *config.Config
 		log *slog.Logger
-		s   stats.Stats
+		ds  datastore.Datastore
 
 		cursor  int
 		choices []mainMenuChoice
@@ -39,11 +39,11 @@ const (
 	menuQuit        mainMenuChoice = "Exit"
 )
 
-func NewMainMenu(log *slog.Logger, c *config.Config, s stats.Stats) *mainMenu {
+func NewMainMenu(log *slog.Logger, c *config.Config, ds datastore.Datastore) *mainMenu {
 	m := &mainMenu{
 		cfg: c,
 		log: log,
-		s:   s,
+		ds:  ds,
 		choices: []mainMenuChoice{
 			menuNewGame,
 			menuShowPlayers,
@@ -51,7 +51,7 @@ func NewMainMenu(log *slog.Logger, c *config.Config, s stats.Stats) *mainMenu {
 			menuQuit,
 		},
 		currentView:   mainMenuView,
-		showGameModel: newShowGameModel(log, s),
+		showGameModel: newShowGameModel(log, ds),
 	}
 
 	m.views = map[view]tea.Model{
@@ -75,9 +75,9 @@ func NewMainMenu(log *slog.Logger, c *config.Config, s stats.Stats) *mainMenu {
 			tea.Sequence(switchViewTo(gameView), undoMove),
 			switchViewTo(gameView),
 		),
-		showGames:   newShowGamesModel(log, s, m.showGameModel),
+		showGames:   newShowGamesModel(log, ds, m.showGameModel),
 		showGame:    m.showGameModel,
-		showPlayers: newShowPlayersModel(log, s),
+		showPlayers: newShowPlayersModel(log, ds),
 	}
 
 	return m
@@ -138,7 +138,7 @@ func (m *mainMenu) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			switch m.choices[m.cursor] {
 			case menuNewGame:
-				g, err := newGame(m.log, m.cfg, m.s, m.showGameModel)
+				g, err := newGame(m.log, m.cfg, m.ds, m.showGameModel)
 				if err != nil {
 					panic(err)
 				}

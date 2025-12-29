@@ -11,8 +11,8 @@ import (
 
 	"github.com/Gerrit91/darts-counter/pkg/checkout"
 	"github.com/Gerrit91/darts-counter/pkg/config"
+	"github.com/Gerrit91/darts-counter/pkg/datastore"
 	"github.com/Gerrit91/darts-counter/pkg/player"
-	"github.com/Gerrit91/darts-counter/pkg/stats"
 	"github.com/google/uuid"
 
 	"github.com/charmbracelet/bubbles/cursor"
@@ -26,7 +26,7 @@ type (
 	game struct {
 		cfg *config.Config
 		log *slog.Logger
-		s   stats.Stats
+		ds  datastore.Datastore
 
 		id            string
 		players       player.Players
@@ -35,7 +35,7 @@ type (
 		startMove     time.Time
 		iter          *player.Iterator
 		rank          int
-		moves         []stats.Move
+		moves         []datastore.Move
 		err           error
 		msg           string
 		finished      bool
@@ -52,7 +52,7 @@ func undoMove() tea.Msg {
 	return undoMoveMsg{}
 }
 
-func newGame(log *slog.Logger, c *config.Config, s stats.Stats, show *showGameModel) (*game, error) {
+func newGame(log *slog.Logger, c *config.Config, ds datastore.Datastore, show *showGameModel) (*game, error) {
 	uuid, err := uuid.NewV7()
 	if err != nil {
 		return nil, fmt.Errorf("unable to generate uuid: %w", err)
@@ -69,7 +69,7 @@ func newGame(log *slog.Logger, c *config.Config, s stats.Stats, show *showGameMo
 
 	var players player.Players
 	for _, p := range c.Players {
-		players = append(players, player.New(p.Name, c.Checkout, c.Checkin, count, s.Enabled()))
+		players = append(players, player.New(p.Name, c.Checkout, c.Checkin, count, ds.Enabled()))
 	}
 
 	playerIterator := players.Iterator()
@@ -83,7 +83,7 @@ func newGame(log *slog.Logger, c *config.Config, s stats.Stats, show *showGameMo
 	return &game{
 		cfg:           c,
 		log:           log,
-		s:             s,
+		ds:            ds,
 		id:            uuid.String(),
 		players:       players,
 		currentPlayer: currentPlayer,
@@ -232,7 +232,7 @@ func (g *game) View() string {
 		}
 
 		if len(g.moves) > 0 {
-			var moves []stats.Move
+			var moves []datastore.Move
 			moves = append(moves, g.moves...)
 			slices.Reverse(moves)
 
@@ -343,7 +343,7 @@ func (g *game) tick(scores []*checkout.Score, total int) {
 		g.rank++
 	}
 
-	statsScore := stats.Score{
+	statsScore := datastore.Score{
 		Total: total,
 	}
 	for _, score := range scores {
@@ -353,7 +353,7 @@ func (g *game) tick(scores []*checkout.Score, total int) {
 	since := time.Since(g.startMove)
 	g.startMove = g.startMove.Add(since)
 
-	g.moves = append(g.moves, stats.Move{
+	g.moves = append(g.moves, datastore.Move{
 		Round:     g.iter.GetRound(),
 		Player:    p.GetName(),
 		Score:     statsScore,
@@ -402,7 +402,7 @@ func (g *game) parseScore(input string) ([]*checkout.Score, int, error) {
 				return nil, 0, fmt.Errorf("unable to parse input (%q), please enter again", err.Error())
 			}
 
-			if g.s.Enabled() {
+			if g.ds.Enabled() {
 				return nil, 0, fmt.Errorf("when statistics are enabled it's not allowed to enter summed up scores")
 			}
 		}
@@ -436,7 +436,7 @@ func (g *game) parseScore(input string) ([]*checkout.Score, int, error) {
 }
 
 func (g *game) persist() error {
-	err := g.s.CreateGameStats(g.gameStats())
+	err := g.ds.CreateGameStats(g.gameStats())
 	if err != nil {
 		return err
 	}
@@ -446,7 +446,7 @@ func (g *game) persist() error {
 	return nil
 }
 
-func (g *game) gameStats() *stats.GameStats {
+func (g *game) gameStats() *datastore.GameStats {
 	var (
 		playerNames []string
 		ranks       = map[int]string{}
@@ -458,7 +458,7 @@ func (g *game) gameStats() *stats.GameStats {
 		playerNames = append(playerNames, p.GetName())
 	}
 
-	return &stats.GameStats{
+	return &datastore.GameStats{
 		ID:       g.id,
 		GameType: g.cfg.Game,
 		Checkin:  string(g.cfg.Checkin),

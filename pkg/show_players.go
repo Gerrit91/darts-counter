@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Gerrit91/darts-counter/pkg/stats"
+	"github.com/Gerrit91/darts-counter/pkg/datastore"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -19,33 +19,33 @@ import (
 type (
 	showPlayersModel struct {
 		log *slog.Logger
-		s   stats.Stats
+		ds  datastore.Datastore
 
 		viewport viewport.Model
 		help     help.Model
 		err      error
 		cursor   int
-		stats    []*stats.PlayerStats
+		stats    []*datastore.PlayerStats
 	}
 )
 
-func newShowPlayersModel(log *slog.Logger, s stats.Stats) *showPlayersModel {
+func newShowPlayersModel(log *slog.Logger, ds datastore.Datastore) *showPlayersModel {
 	return &showPlayersModel{
 		log:      log,
 		viewport: viewport.New(0, 20),
-		s:        s,
+		ds:       ds,
 		help:     newHelp(),
 	}
 }
 
 func (s *showPlayersModel) Init() tea.Cmd {
-	gameStats, err := s.s.ListGameStats()
+	gameStats, err := s.ds.ListGameStats()
 	if err != nil {
 		s.err = err
 		return nil
 	}
 
-	s.stats, err = stats.ToPlayerStats(gameStats)
+	s.stats, err = datastore.ToPlayerStats(gameStats)
 	if err != nil {
 		s.err = err
 		return nil
@@ -100,7 +100,7 @@ func (s *showPlayersModel) View() string {
 	var (
 		lines         []string
 		viewportLines []string
-		row           = func(stat *stats.PlayerStats, style lipgloss.Style) string {
+		row           = func(stat *datastore.PlayerStats, style lipgloss.Style) string {
 			favField := ""
 			favCount := 0
 			for field, count := range stat.FieldsCount {
@@ -115,6 +115,7 @@ func (s *showPlayersModel) View() string {
 				fill(strconv.Itoa(stat.RanksCount[1]), 5) +
 				fill(strconv.Itoa(stat.RanksCount[len(stat.RanksCount)]), 7) +
 				fill(strconv.Itoa(stat.GamesPlayed), 6) +
+				fill(strconv.FormatFloat(stat.AverageRank, 'f', 3, 64), 7) +
 				fill(strconv.FormatFloat(stat.AverageScore, 'f', 1, 64), 8) +
 				fill(fmt.Sprintf("%d (%s)", stat.HighestScore.Total, strings.Join(stat.HighestScore.Fields, " → ")), 22) +
 				fill(favField, 10) +
@@ -126,15 +127,16 @@ func (s *showPlayersModel) View() string {
 				fill("Wins", 5) +
 				fill("Losses", 7) +
 				fill("Games", 6) +
-				fill("⌀ score", 8) +
+				fill("⌀-Rank", 7) +
+				fill("⌀-Score", 8) +
 				fill("Max Score", 22) +
 				fill("Fav Field", 10) +
-				"⌀ s/move"
+				"⌀-Sec/move"
 			return s
 		}
 	)
 
-	if !s.s.Enabled() {
+	if !s.ds.Enabled() {
 		lines = append(lines, styleError.Render("Statistics are disabled through config."))
 		lines = append(lines, s.help.ShortHelpView([]key.Binding{
 			key.NewBinding(

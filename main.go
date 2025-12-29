@@ -8,7 +8,7 @@ import (
 
 	game "github.com/Gerrit91/darts-counter/pkg"
 	"github.com/Gerrit91/darts-counter/pkg/config"
-	"github.com/Gerrit91/darts-counter/pkg/stats"
+	"github.com/Gerrit91/darts-counter/pkg/datastore"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -65,7 +65,7 @@ func initLogger(config *config.Config) (*slog.Logger, error) {
 }
 
 func run(config *config.Config, log *slog.Logger) error {
-	s, err := stats.New(log, config.Statistics)
+	ds, err := datastore.New(log, config.Statistics)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func run(config *config.Config, log *slog.Logger) error {
 	log.Info("launching main menu")
 
 	var (
-		m = game.NewMainMenu(log, config, s)
+		m = game.NewMainMenu(log, config, ds)
 		p = tea.NewProgram(m,
 			tea.WithAltScreen(),
 			tea.WithMouseCellMotion(),

@@ -1,4 +1,4 @@
-package stats
+package datastore
 
 import (
 	"encoding/json"

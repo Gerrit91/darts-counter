@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Gerrit91/darts-counter/pkg/stats"
+	"github.com/Gerrit91/darts-counter/pkg/datastore"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -17,14 +17,14 @@ import (
 type (
 	showGamesModel struct {
 		log *slog.Logger
-		s   stats.Stats
+		ds  datastore.Datastore
 
 		viewport viewport.Model
 		help     help.Model
 		show     *showGameModel
 		err      error
 		cursor   int
-		stats    []*stats.GameStats
+		stats    []*datastore.GameStats
 	}
 
 	deleteGameStatMsg struct{}
@@ -34,11 +34,11 @@ func deleteGameStat() tea.Msg {
 	return deleteGameStatMsg{}
 }
 
-func newShowGamesModel(log *slog.Logger, s stats.Stats, show *showGameModel) *showGamesModel {
+func newShowGamesModel(log *slog.Logger, ds datastore.Datastore, show *showGameModel) *showGamesModel {
 	return &showGamesModel{
 		log:      log,
 		viewport: viewport.New(0, 20),
-		s:        s,
+		ds:       ds,
 		show:     show,
 		help:     newHelp(),
 	}
@@ -46,7 +46,7 @@ func newShowGamesModel(log *slog.Logger, s stats.Stats, show *showGameModel) *sh
 
 func (s *showGamesModel) Init() tea.Cmd {
 	var err error
-	s.stats, err = s.s.ListGameStats()
+	s.stats, err = s.ds.ListGameStats()
 	if err != nil {
 		s.err = err
 		return nil
@@ -69,7 +69,7 @@ func (s *showGamesModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		s.log.Info("deleting game stat", "id", stat.ID)
 
-		err := s.s.DeleteGameStats(stat.ID)
+		err := s.ds.DeleteGameStats(stat.ID)
 		if err != nil {
 			s.err = err
 			return s, nil
@@ -118,7 +118,7 @@ func (s *showGamesModel) View() string {
 	var (
 		lines         []string
 		viewportLines []string
-		row           = func(stat *stats.GameStats, style lipgloss.Style) string {
+		row           = func(stat *datastore.GameStats, style lipgloss.Style) string {
 			var players []string
 			players = append(players, stat.Players...)
 			for i, p := range players {
@@ -143,7 +143,7 @@ func (s *showGamesModel) View() string {
 		}
 	)
 
-	if !s.s.Enabled() {
+	if !s.ds.Enabled() {
 		lines = append(lines, styleError.Render("Statistics are disabled through config."))
 		lines = append(lines, s.help.ShortHelpView([]key.Binding{
 			key.NewBinding(

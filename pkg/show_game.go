@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Gerrit91/darts-counter/pkg/stats"
+	"github.com/Gerrit91/darts-counter/pkg/datastore"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"sigs.k8s.io/yaml"
@@ -16,16 +16,16 @@ import (
 
 type showGameModel struct {
 	log      *slog.Logger
-	s        stats.Stats
+	ds       datastore.Datastore
 	viewport viewport.Model
-	gs       stats.GameStats
+	gs       datastore.GameStats
 	backTo   tea.Cmd
 }
 
-func newShowGameModel(log *slog.Logger, s stats.Stats) *showGameModel {
+func newShowGameModel(log *slog.Logger, ds datastore.Datastore) *showGameModel {
 	return &showGameModel{
 		log:      log,
-		s:        s,
+		ds:       ds,
 		viewport: viewport.New(0, 20),
 		backTo:   switchViewTo(showGames),
 	}
