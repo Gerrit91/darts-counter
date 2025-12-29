@@ -28,17 +28,23 @@ func NewScore(score int) *Score {
 func ParseScore(input string) (*Score, error) {
 	var (
 		multiplier Multiplier
+
+		triple   = strings.ToLower(string(Triple))
+		double   = strings.ToLower(string(Double))
+		bullseye = strings.ToLower("B")
 	)
 
-	if strings.HasPrefix(input, string(Triple)) {
+	input = strings.ToLower(input)
+
+	if strings.HasPrefix(input, triple) {
 		multiplier = Triple
-		input = strings.TrimPrefix(input, string(Triple))
-	} else if strings.HasPrefix(input, string(Double)) {
+		input = strings.TrimPrefix(input, triple)
+	} else if strings.HasPrefix(input, double) {
 		multiplier = Double
-		input = strings.TrimPrefix(input, string(Double))
+		input = strings.TrimPrefix(input, double)
 	}
 
-	if input == "B" {
+	if input == bullseye {
 		if multiplier == Triple {
 			return nil, fmt.Errorf("there is no triple bullseye")
 		}

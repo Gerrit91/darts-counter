@@ -26,6 +26,13 @@ type Config struct {
 		Name string `json:"name"`
 	} `json:"players"`
 	Statistics *StatisticsConfig `json:"statistics"`
+	Logging    *LoggingConfig    `json:"logging"`
+}
+
+type LoggingConfig struct {
+	Enabled bool   `json:"enabled"`
+	Path    string `json:"path"`
+	Level   string `json:"level"`
 }
 
 type StatisticsConfig struct {
@@ -34,7 +41,12 @@ type StatisticsConfig struct {
 }
 
 func ReadConfig() (*Config, error) {
-	raw, err := os.ReadFile("config.yaml")
+	configPath := os.Getenv("CONFIG_PATH")
+	if configPath == "" {
+		configPath = "config.yaml"
+	}
+
+	raw, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +82,14 @@ func (c *Config) Default() {
 			Path:    "darts-counter.db",
 		}
 	}
+
+	if c.Logging == nil {
+		c.Logging = &LoggingConfig{
+			Enabled: true,
+			Path:    "darts-counter.log",
+			Level:   "DEBUG",
+		}
+	}
 }
 
 func (c *Config) Validate() error {
@@ -92,6 +112,16 @@ func (c *Config) Validate() error {
 		// noop
 	default:
 		return fmt.Errorf("unknown check-out type: %s", c.Checkout)
+	}
+
+	names := map[string]bool{}
+	for _, p := range c.Players {
+		_, ok := names[p.Name]
+		if ok {
+			return fmt.Errorf("player names must be unique")
+		}
+
+		names[p.Name] = true
 	}
 
 	return nil

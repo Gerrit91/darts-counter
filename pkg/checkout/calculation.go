@@ -25,8 +25,6 @@ func newCalculator(opts ...option) (*calculator, error) {
 	}
 
 	for _, o := range opts {
-		o := o
-
 		switch opt := o.(type) {
 		case *optionCalcLimit:
 			c.limit = opt.calcLimit

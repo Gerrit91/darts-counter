@@ -7,7 +7,6 @@ import (
 
 	"github.com/Gerrit91/darts-counter/pkg/checkout"
 	"github.com/google/go-cmp/cmp"
-	"github.com/metal-stack/metal-lib/pkg/testcommon"
 )
 
 func TestParseScore(t *testing.T) {
@@ -76,7 +75,7 @@ func TestParseScore(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, gotErr := checkout.ParseScore(tt.input)
-			if diff := cmp.Diff(gotErr, tt.wantErr, testcommon.ErrorStringComparer()); diff != "" {
+			if diff := cmp.Diff(gotErr, tt.wantErr, errorStringComparer()); diff != "" {
 				t.Errorf("error diff: %s", diff)
 			}
 
@@ -89,4 +88,19 @@ func TestParseScore(t *testing.T) {
 			}
 		})
 	}
+}
+
+func errorStringComparer() cmp.Option {
+	return cmp.Comparer(func(x, y error) bool {
+		if x == nil && y == nil {
+			return true
+		}
+		if x == nil && y != nil {
+			return false
+		}
+		if x != nil && y == nil {
+			return false
+		}
+		return x.Error() == y.Error()
+	})
 }

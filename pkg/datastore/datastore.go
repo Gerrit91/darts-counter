@@ -1,21 +1,23 @@
-package stats
+package datastore
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/Gerrit91/darts-counter/pkg/config"
 )
 
 type (
-	Stats interface {
+	Datastore interface {
 		CreateGameStats(g *GameStats) error
 		DeleteGameStats(id string) error
-		GetGameStats(filterOpts ...filter) ([]*GameStats, error)
-		GetPlayerStats(filterOpts ...filter) ([]*PlayerStats, error)
+		ListGameStats(filterOpts ...filter) ([]*GameStats, error)
+		Close()
+		Enabled() bool
 	}
 
-	filter   interface{}
+	filter   any
 	idFilter struct{ id string }
 
 	GameStats struct {
@@ -24,12 +26,14 @@ type (
 		Checkout string          `json:"checkout"`
 		Checkin  string          `json:"checkin"`
 		Players  []string        `json:"players"`
-		Ranks    map[int]string  `json:"ranks"`
+		Ranks    Ranks           `json:"ranks"`
 		Rounds   int             `json:"rounds"`
 		Start    time.Time       `json:"start"`
 		End      time.Time       `json:"end"`
 		Moves    []Move          `json:"moves"`
 	}
+
+	Ranks map[int]string
 
 	Move struct {
 		Round     int    `json:"round"`
@@ -40,41 +44,35 @@ type (
 	}
 
 	Score struct {
-		Total    int      `json:"total"`
-		Partials []string `json:"partials"`
-	}
-
-	PlayerStats struct {
-		ID          string      `json:"id"`
-		GamesPlayed int         `json:"games_played"`
-		RanksCount  map[int]int `json:"ranks_count"`
+		Total  int      `json:"total"`
+		Fields []string `json:"partials"`
 	}
 
 	stats struct {
-		Stats
+		Datastore
 		c config.StatisticsConfig
 	}
 )
 
-func New(c *config.StatisticsConfig) (Stats, error) {
+func New(log *slog.Logger, c *config.StatisticsConfig) (Datastore, error) {
 	if c == nil {
 		return nil, fmt.Errorf("no statistics config defined")
 	}
 
 	s := &stats{
-		Stats: &noopImpl{},
-		c:     *c,
+		Datastore: &noopImpl{},
+		c:         *c,
 	}
 
 	if c.Enabled {
-		b := &boltImpl{c: &s.c}
+		b := &boltImpl{c: &s.c, log: log}
 
 		err := b.initializeDatastore()
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize datastore: %w", err)
 		}
 
-		s.Stats = b
+		s.Datastore = b
 	}
 
 	return s, nil
@@ -82,4 +80,13 @@ func New(c *config.StatisticsConfig) (Stats, error) {
 
 func IdFilter(id string) filter {
 	return &idFilter{id: id}
+}
+
+func (r Ranks) OfPlayer(id string) int {
+	for rank, playerID := range r {
+		if playerID == id {
+			return rank
+		}
+	}
+	return 0
 }

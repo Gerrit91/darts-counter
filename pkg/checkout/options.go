@@ -1,7 +1,7 @@
 package checkout
 
 type (
-	option interface{}
+	option any
 
 	optionMaxThrows struct {
 		max int
