@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
+
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -19,12 +20,13 @@ type (
 		log *slog.Logger
 		ds  datastore.Datastore
 
+		show   *showGameModel
+		cursor int
+		stats  []*datastore.GameStats
+
 		viewport viewport.Model
 		help     help.Model
-		show     *showGameModel
 		err      error
-		cursor   int
-		stats    []*datastore.GameStats
 	}
 
 	deleteGameStatMsg struct{}
@@ -142,17 +144,6 @@ func (s *showGamesModel) View() string {
 			return s
 		}
 	)
-
-	if !s.ds.Enabled() {
-		lines = append(lines, styleError.Render("Statistics are disabled through config."))
-		lines = append(lines, s.help.ShortHelpView([]key.Binding{
-			key.NewBinding(
-				key.WithKeys("q", "esc"),
-				key.WithHelp("q", "quit"),
-			),
-		}))
-		return strings.Join(lines, "\n")
-	}
 
 	if s.err != nil {
 		lines = append(lines, styleError.Render(s.err.Error()))

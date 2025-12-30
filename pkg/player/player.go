@@ -14,14 +14,13 @@ var (
 
 type (
 	Player struct {
-		name         string
-		out          checkout.CheckoutType
-		in           checkout.CheckinType
-		remaining    int
-		startScore   int
-		rank         int
-		finished     bool
-		statsEnabled bool
+		name       string
+		out        checkout.CheckoutType
+		in         checkout.CheckinType
+		remaining  int
+		startScore int
+		rank       int
+		finished   bool
 	}
 
 	Players []*Player
@@ -37,14 +36,13 @@ func (ps Players) Names() []string {
 	return names
 }
 
-func New(name string, out checkout.CheckoutType, in checkout.CheckinType, remaining int, statsEnabled bool) *Player {
+func New(name string, out checkout.CheckoutType, in checkout.CheckinType, remaining int) *Player {
 	return &Player{
-		name:         name,
-		remaining:    remaining,
-		startScore:   remaining,
-		out:          out,
-		in:           in,
-		statsEnabled: statsEnabled,
+		name:       name,
+		remaining:  remaining,
+		startScore: remaining,
+		out:        out,
+		in:         in,
 	}
 }
 

@@ -1,8 +1,1 @@
 ---
-game: "301"
-# checkin: double-in
-checkout: straight-out
-players:
-  - name: Conni
-  - name: Gerrit
-  - name: Andreas

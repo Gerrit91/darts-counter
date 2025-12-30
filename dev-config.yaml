@@ -1,14 +1,5 @@
 ---
-game: "301"
-# checkin: double-in
-checkout: straight-out
-players:
-  - name: Player 1
-  - name: Player 2
-  - name: Player 3
-
-statistics:
-  enabled: true
+database:
   path: darts-counter-test.db
 
 logging:

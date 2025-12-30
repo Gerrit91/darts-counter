@@ -22,6 +22,7 @@ const (
 	closeGameDialogView view = "close-game-dialog"
 	deleteGameStatView  view = "delete-game-stat-dialog"
 	gameView            view = "game"
+	gameSettingsView    view = "game-settings"
 	mainMenuView        view = "main-menu"
 	showGame            view = "show-game"
 	showGames           view = "show-games"

@@ -15,12 +15,17 @@ import (
 )
 
 var (
-	gamesBucket = []byte("games")
+	gamesBucket    = []byte("games")
+	settingsBucket = []byte("settings")
+)
+
+const (
+	settingsGameKey string = "game"
 )
 
 type boltImpl struct {
 	log *slog.Logger
-	c   *config.StatisticsConfig
+	c   *config.DatabaseConfig
 	db  *bolt.DB
 }
 
@@ -35,7 +40,7 @@ func (b *boltImpl) ListGameStats(filterOpts ...filter) ([]*GameStats, error) {
 
 				v := b.Get([]byte(o.id))
 				if v == nil {
-					return fmt.Errorf("game with id %q not found", o.id)
+					return fmt.Errorf("%w: game with id %q not found", ErrNotFound, o.id)
 				}
 
 				var s *GameStats
@@ -110,16 +115,54 @@ func (b *boltImpl) DeleteGameStats(id string) error {
 	})
 }
 
+func (b *boltImpl) GetGameSettings() (*GameSettings, error) {
+	var s *GameSettings
+
+	err := b.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(settingsBucket)
+
+		v := b.Get([]byte(settingsGameKey))
+		if v == nil {
+			return fmt.Errorf("%w: settings with id %q not found", ErrNotFound, settingsGameKey)
+		}
+
+		err := json.Unmarshal(v, &s)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
+
+func (b *boltImpl) UpdateGameSettings(s *GameSettings) error {
+	if err := validateGameSettings(s); err != nil {
+		return err
+	}
+
+	return b.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(settingsBucket)
+
+		buf, err := json.Marshal(s)
+		if err != nil {
+			return err
+		}
+
+		return b.Put([]byte(settingsGameKey), buf)
+	})
+}
+
 func (b *boltImpl) Close() {
 	if b.db != nil {
 		if err := b.db.Close(); err != nil {
 			b.log.Error("error closing data store", "error", err)
 		}
 	}
-}
-
-func (*boltImpl) Enabled() bool {
-	return true
 }
 
 func (b *boltImpl) initializeDatastore() error {
@@ -132,16 +175,18 @@ func (b *boltImpl) initializeDatastore() error {
 
 	b.db = db
 
-	err = db.Update(func(tx *bolt.Tx) error {
-		_, err = tx.CreateBucket(gamesBucket)
-		if err != nil {
-			return fmt.Errorf("create bucket: %w", err)
-		}
+	for _, bucket := range [][]byte{gamesBucket, settingsBucket} {
+		err = db.Update(func(tx *bolt.Tx) error {
+			_, err = tx.CreateBucket(bucket)
+			if err != nil {
+				return fmt.Errorf("error creating bucket %s: %w", string(bucket), err)
+			}
 
-		return nil
-	})
-	if err != nil && !errors.Is(err, berrors.ErrBucketExists) {
-		return err
+			return nil
+		})
+		if err != nil && !errors.Is(err, berrors.ErrBucketExists) {
+			return err
+		}
 	}
 
 	return nil

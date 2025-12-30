@@ -9,17 +9,21 @@ import (
 	"time"
 
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
+
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+
 	"sigs.k8s.io/yaml"
 )
 
 type showGameModel struct {
-	log      *slog.Logger
-	ds       datastore.Datastore
+	log *slog.Logger
+	ds  datastore.Datastore
+
 	viewport viewport.Model
 	gs       datastore.GameStats
-	backTo   tea.Cmd
+
+	backTo tea.Cmd
 }
 
 func newShowGameModel(log *slog.Logger, ds datastore.Datastore) *showGameModel {

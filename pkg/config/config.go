@@ -1,10 +1,8 @@
 package config
 
 import (
-	"fmt"
 	"os"
 
-	"github.com/Gerrit91/darts-counter/pkg/checkout"
 	"sigs.k8s.io/yaml"
 )
 
@@ -19,14 +17,8 @@ const (
 )
 
 type Config struct {
-	Game     GameType              `json:"game"`
-	Checkout checkout.CheckoutType `json:"checkout"`
-	Checkin  checkout.CheckinType  `json:"checkin"`
-	Players  []struct {
-		Name string `json:"name"`
-	} `json:"players"`
-	Statistics *StatisticsConfig `json:"statistics"`
-	Logging    *LoggingConfig    `json:"logging"`
+	Database *DatabaseConfig `json:"database"`
+	Logging  *LoggingConfig  `json:"logging"`
 }
 
 type LoggingConfig struct {
@@ -35,9 +27,8 @@ type LoggingConfig struct {
 	Level   string `json:"level"`
 }
 
-type StatisticsConfig struct {
-	Enabled bool   `json:"enabled"`
-	Path    string `json:"path"`
+type DatabaseConfig struct {
+	Path string `json:"path"`
 }
 
 func ReadConfig() (*Config, error) {
@@ -64,22 +55,9 @@ func ReadConfig() (*Config, error) {
 }
 
 func (c *Config) Default() {
-	if c.Checkout == "" {
-		c.Checkout = checkout.CheckoutTypeDoubleOut
-	}
-
-	if c.Checkin == "" {
-		c.Checkin = checkout.CheckinTypeStraightIn
-	}
-
-	if c.Game == "" {
-		c.Game = GameType501
-	}
-
-	if c.Statistics == nil {
-		c.Statistics = &StatisticsConfig{
-			Enabled: true,
-			Path:    "darts-counter.db",
+	if c.Database == nil {
+		c.Database = &DatabaseConfig{
+			Path: "darts-counter.db",
 		}
 	}
 
@@ -87,42 +65,7 @@ func (c *Config) Default() {
 		c.Logging = &LoggingConfig{
 			Enabled: true,
 			Path:    "darts-counter.log",
-			Level:   "DEBUG",
+			Level:   "info",
 		}
 	}
-}
-
-func (c *Config) Validate() error {
-	switch gt := c.Game; gt {
-	case GameType101, GameType301, GameType501, GameType701, GameType1001:
-		// noop
-	default:
-		return fmt.Errorf("unknown game type: %s", gt)
-	}
-
-	switch c.Checkin {
-	case checkout.CheckinTypeDoubleIn, checkout.CheckinTypeStraightIn:
-		// noop
-	default:
-		return fmt.Errorf("unknown check-in type: %s", c.Checkin)
-	}
-
-	switch c.Checkout {
-	case checkout.CheckoutTypeDoubleOut, checkout.CheckoutTypeStraightOut:
-		// noop
-	default:
-		return fmt.Errorf("unknown check-out type: %s", c.Checkout)
-	}
-
-	names := map[string]bool{}
-	for _, p := range c.Players {
-		_, ok := names[p.Name]
-		if ok {
-			return fmt.Errorf("player names must be unique")
-		}
-
-		names[p.Name] = true
-	}
-
-	return nil
 }

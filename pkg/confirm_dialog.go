@@ -93,7 +93,7 @@ func (c *confirmDialogModel) View() string {
 		lines = append(lines, "Are you sure?", "")
 	}
 
-	for i := 0; i < len(c.choices); i++ {
+	for i := range len(c.choices) {
 		if c.cursor == i {
 			selection := fill("→", 3)
 			lines = append(lines, stylePink.Render(selection)+styleActive.Render(string(c.choices[i])))

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/Gerrit91/darts-counter/pkg/checkout"
 	"github.com/Gerrit91/darts-counter/pkg/config"
 )
 
@@ -13,8 +14,9 @@ type (
 		CreateGameStats(g *GameStats) error
 		DeleteGameStats(id string) error
 		ListGameStats(filterOpts ...filter) ([]*GameStats, error)
+		GetGameSettings() (*GameSettings, error)
+		UpdateGameSettings(s *GameSettings) error
 		Close()
-		Enabled() bool
 	}
 
 	filter   any
@@ -48,34 +50,35 @@ type (
 		Fields []string `json:"partials"`
 	}
 
-	stats struct {
-		Datastore
-		c config.StatisticsConfig
+	GameSettings struct {
+		Type     config.GameType       `json:"game_type"`
+		Checkout checkout.CheckoutType `json:"checkout"`
+		Checkin  checkout.CheckinType  `json:"checkin"`
+		Players  []Player              `json:"players"`
+	}
+
+	Player struct {
+		Name string `json:"name"`
 	}
 )
 
-func New(log *slog.Logger, c *config.StatisticsConfig) (Datastore, error) {
+var (
+	ErrNotFound = fmt.Errorf("not found")
+)
+
+func New(log *slog.Logger, c *config.DatabaseConfig) (Datastore, error) {
 	if c == nil {
 		return nil, fmt.Errorf("no statistics config defined")
 	}
 
-	s := &stats{
-		Datastore: &noopImpl{},
-		c:         *c,
+	b := &boltImpl{c: c, log: log}
+
+	err := b.initializeDatastore()
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize datastore: %w", err)
 	}
 
-	if c.Enabled {
-		b := &boltImpl{c: &s.c, log: log}
-
-		err := b.initializeDatastore()
-		if err != nil {
-			return nil, fmt.Errorf("unable to initialize datastore: %w", err)
-		}
-
-		s.Datastore = b
-	}
-
-	return s, nil
+	return b, nil
 }
 
 func IdFilter(id string) filter {
@@ -89,4 +92,39 @@ func (r Ranks) OfPlayer(id string) int {
 		}
 	}
 	return 0
+}
+
+func validateGameSettings(g *GameSettings) error {
+	switch gt := g.Type; gt {
+	case config.GameType101, config.GameType301, config.GameType501, config.GameType701, config.GameType1001:
+		// noop
+	default:
+		return fmt.Errorf("unknown game type: %s", gt)
+	}
+
+	switch g.Checkin {
+	case checkout.CheckinTypeDoubleIn, checkout.CheckinTypeStraightIn:
+		// noop
+	default:
+		return fmt.Errorf("unknown check-in type: %s", g.Checkin)
+	}
+
+	switch g.Checkout {
+	case checkout.CheckoutTypeDoubleOut, checkout.CheckoutTypeStraightOut:
+		// noop
+	default:
+		return fmt.Errorf("unknown check-out type: %s", g.Checkout)
+	}
+
+	names := map[string]bool{}
+	for _, p := range g.Players {
+		_, ok := names[p.Name]
+		if ok {
+			return fmt.Errorf("player names must be unique")
+		}
+
+		names[p.Name] = true
+	}
+
+	return nil
 }

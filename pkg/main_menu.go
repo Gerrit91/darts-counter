@@ -1,6 +1,7 @@
 package game
 
 import (
+	"errors"
 	"log/slog"
 	"strings"
 
@@ -20,6 +21,7 @@ type (
 
 		cursor  int
 		choices []mainMenuChoice
+		err     error
 
 		currentView   view
 		views         map[view]tea.Model
@@ -30,13 +32,11 @@ type (
 )
 
 const (
-	menuNewGame mainMenuChoice = "Start New Game"
-	// "Game Configuration"
-	// --> allow selecting game (type, check-in, players, ...)
-	// --> redirect from start new game on first start
-	menuShowPlayers mainMenuChoice = "Show Players"
-	menuShowGames   mainMenuChoice = "Show Games"
-	menuQuit        mainMenuChoice = "Exit"
+	menuNewGame      mainMenuChoice = "Start New Game"
+	menuGameSettings mainMenuChoice = "Game Settings"
+	menuShowPlayers  mainMenuChoice = "Show Players"
+	menuShowGames    mainMenuChoice = "Show Games"
+	menuQuit         mainMenuChoice = "Exit"
 )
 
 func NewMainMenu(log *slog.Logger, c *config.Config, ds datastore.Datastore) *mainMenu {
@@ -46,6 +46,7 @@ func NewMainMenu(log *slog.Logger, c *config.Config, ds datastore.Datastore) *ma
 		ds:  ds,
 		choices: []mainMenuChoice{
 			menuNewGame,
+			menuGameSettings,
 			menuShowPlayers,
 			menuShowGames,
 			menuQuit,
@@ -55,8 +56,9 @@ func NewMainMenu(log *slog.Logger, c *config.Config, ds datastore.Datastore) *ma
 	}
 
 	m.views = map[view]tea.Model{
-		mainMenuView: m,
-		gameView:     nil,
+		mainMenuView:     m,
+		gameView:         nil,
+		gameSettingsView: newGameSettings(log, ds),
 		deleteGameStatView: newConfirmDialog(
 			log,
 			"Are you sure you want to delete this game from the statistics?\nIt cannot be recovered.",
@@ -105,6 +107,8 @@ func (m *mainMenu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, view.Init()
 	case tea.KeyMsg:
+		m.log.Info("received key message", "msg", spew.Sdump(msg))
+
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
@@ -134,18 +138,26 @@ func (m *mainMenu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *mainMenu) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		m.err = nil
+
 		switch msg.String() {
 		case "enter":
 			switch m.choices[m.cursor] {
 			case menuNewGame:
-				g, err := newGame(m.log, m.cfg, m.ds, m.showGameModel)
+				g, err := newGame(m.log, m.ds, m.showGameModel)
 				if err != nil {
-					panic(err)
+					if errors.Is(err, datastore.ErrNotFound) {
+						return m, switchViewTo(gameSettingsView)
+					}
+					m.err = err
+					return m, nil
 				}
 
 				m.views[gameView] = g
 
 				return m, switchViewTo(gameView)
+			case menuGameSettings:
+				return m, switchViewTo(gameSettingsView)
 			case menuQuit:
 				return m, tea.Quit
 			case menuShowGames:
@@ -193,7 +205,7 @@ func (m *mainMenu) view() string {
 
 	lines = append(lines, headline("darts-counter"), "")
 
-	for i := 0; i < len(m.choices); i++ {
+	for i := range len(m.choices) {
 		if m.cursor == i {
 			selection := fill("→", 3)
 			lines = append(lines, stylePink.Render(selection)+styleActive.Render(string(m.choices[i])))
@@ -202,6 +214,10 @@ func (m *mainMenu) view() string {
 
 		selection := fill("", 3)
 		lines = append(lines, selection+styleInactive.Render(string(m.choices[i])))
+	}
+
+	if m.err != nil {
+		lines = append(lines, "", styleError.Render(m.err.Error()))
 	}
 
 	return strings.Join(lines, "\n")

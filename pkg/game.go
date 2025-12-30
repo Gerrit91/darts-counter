@@ -13,6 +13,7 @@ import (
 	"github.com/Gerrit91/darts-counter/pkg/config"
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
 	"github.com/Gerrit91/darts-counter/pkg/player"
+
 	"github.com/google/uuid"
 
 	"github.com/charmbracelet/bubbles/cursor"
@@ -24,9 +25,9 @@ import (
 
 type (
 	game struct {
-		cfg *config.Config
-		log *slog.Logger
-		ds  datastore.Datastore
+		log      *slog.Logger
+		ds       datastore.Datastore
+		settings *datastore.GameSettings
 
 		id            string
 		players       player.Players
@@ -52,7 +53,13 @@ func undoMove() tea.Msg {
 	return undoMoveMsg{}
 }
 
-func newGame(log *slog.Logger, c *config.Config, ds datastore.Datastore, show *showGameModel) (*game, error) {
+func newGame(log *slog.Logger, ds datastore.Datastore, show *showGameModel) (*game, error) {
+	settings, err := ds.GetGameSettings()
+	if err != nil {
+		// TODO: if not found, redirect to settings view
+		return nil, fmt.Errorf("unable to retrieve game settings: %w", err)
+	}
+
 	uuid, err := uuid.NewV7()
 	if err != nil {
 		return nil, fmt.Errorf("unable to generate uuid: %w", err)
@@ -60,16 +67,16 @@ func newGame(log *slog.Logger, c *config.Config, ds datastore.Datastore, show *s
 
 	count := 0
 
-	switch gt := c.Game; gt {
+	switch gt := settings.Type; gt {
 	case config.GameType101, config.GameType301, config.GameType501, config.GameType701, config.GameType1001:
 		count, _ = strconv.Atoi(string(gt))
 	default:
-		return nil, fmt.Errorf("unknown game: %s", c.Game)
+		return nil, fmt.Errorf("unknown game: %s", gt)
 	}
 
 	var players player.Players
-	for _, p := range c.Players {
-		players = append(players, player.New(p.Name, c.Checkout, c.Checkin, count, ds.Enabled()))
+	for _, p := range settings.Players {
+		players = append(players, player.New(p.Name, settings.Checkout, settings.Checkin, count))
 	}
 
 	playerIterator := players.Iterator()
@@ -81,9 +88,9 @@ func newGame(log *slog.Logger, c *config.Config, ds datastore.Datastore, show *s
 	now := time.Now()
 
 	return &game{
-		cfg:           c,
 		log:           log,
 		ds:            ds,
+		settings:      settings,
 		id:            uuid.String(),
 		players:       players,
 		currentPlayer: currentPlayer,
@@ -208,7 +215,7 @@ func (g *game) View() string {
 		}
 	}
 
-	lines = append(lines, headline(fmt.Sprintf("Game %s: Round %d", g.cfg.Game, g.iter.GetRound())))
+	lines = append(lines, headline(fmt.Sprintf("Game %s: Round %d", g.settings.Type, g.iter.GetRound())))
 
 	lines = append(lines, "")
 
@@ -245,7 +252,7 @@ func (g *game) View() string {
 		}
 
 		if p.GetRemaining() > 0 {
-			variants := checkout.For(p.GetRemaining(), checkout.NewCalcLimitOption(3), checkout.NewCheckoutTypeOption(g.cfg.Checkout))
+			variants := checkout.For(p.GetRemaining(), checkout.NewCalcLimitOption(3), checkout.NewCheckoutTypeOption(g.settings.Checkout))
 			switch len(variants) {
 			case 0:
 			case 1, 2:
@@ -390,23 +397,7 @@ func (g *game) parseScore(input string) ([]*checkout.Score, int, error) {
 	switch len(segments) {
 	case 0:
 		return nil, 0, fmt.Errorf("no points entered")
-	case 1:
-		s, err := checkout.ParseScore(input)
-		if err == nil {
-			total = s.Value()
-			scores = append(scores, s)
-		} else {
-			// user entered summed up score
-			total, err = strconv.Atoi(input)
-			if err != nil {
-				return nil, 0, fmt.Errorf("unable to parse input (%q), please enter again", err.Error())
-			}
-
-			if g.ds.Enabled() {
-				return nil, 0, fmt.Errorf("when statistics are enabled it's not allowed to enter summed up scores")
-			}
-		}
-	case 2, 3:
+	case 1, 2, 3:
 		var (
 			sum   int
 			score *checkout.Score
@@ -460,9 +451,9 @@ func (g *game) gameStats() *datastore.GameStats {
 
 	return &datastore.GameStats{
 		ID:       g.id,
-		GameType: g.cfg.Game,
-		Checkin:  string(g.cfg.Checkin),
-		Checkout: string(g.cfg.Checkout),
+		GameType: g.settings.Type,
+		Checkin:  string(g.settings.Checkin),
+		Checkout: string(g.settings.Checkout),
 		Players:  playerNames,
 		Rounds:   g.iter.GetRound(),
 		Ranks:    ranks,
