@@ -137,6 +137,13 @@ func (g *game) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return g, nil
 		}
 
+		if lastPlayer.HasFinished() {
+			g.rank--
+		}
+		if g.currentPlayer.HasFinished() {
+			g.rank--
+		}
+
 		err = lastPlayer.Edit(lastPlayer.GetRemaining() + lastMove.Score.Total)
 		if err != nil {
 			g.err = err
@@ -145,7 +152,6 @@ func (g *game) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		g.finished = false
 		g.currentPlayer.SetRank(0)
-		g.rank = lastPlayer.GetRank()
 		lastPlayer.SetRank(0)
 		g.moves = g.moves[:lastIdx]
 		g.currentPlayer = lastPlayer

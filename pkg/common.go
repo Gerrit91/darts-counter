@@ -36,6 +36,7 @@ var (
 	styleActive     = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
 	styleGreen      = lipgloss.NewStyle().Foreground(lipgloss.Color("#32CD32"))
 	styleError      = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
+	styleHelp       = lipgloss.NewStyle().Foreground(lipgloss.Color("#4A4A4A"))
 	styleUnderlined = lipgloss.NewStyle().Underline(true)
 	red             = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
 	white           = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))

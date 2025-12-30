@@ -25,7 +25,9 @@ func main() {
 		slog.Error("error initializing logger", "error", err)
 		os.Exit(1)
 	}
-	defer fileCloser()
+	if fileCloser != nil {
+		defer fileCloser()
+	}
 
 	if err := run(config, log); err != nil {
 		log.Error("error running darts-counter", "error", err)

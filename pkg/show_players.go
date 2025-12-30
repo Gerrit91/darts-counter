@@ -65,14 +65,16 @@ func (s *showPlayersModel) Init() tea.Cmd {
 }
 
 func (s *showPlayersModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	scrollToBottom := false
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		headerHeight := 2
-		footerHeight := 1
-		verticalMarginHeight := headerHeight + footerHeight
+		var (
+			headerHeight         = 2
+			footerHeight         = 1
+			verticalMarginHeight = headerHeight + footerHeight
+		)
 
-		helpWidth := 5
-		s.help.Width = msg.Width - helpWidth
 		s.viewport.Width = msg.Width
 		s.viewport.Height = msg.Height - verticalMarginHeight
 	case tea.KeyMsg:
@@ -83,17 +85,30 @@ func (s *showPlayersModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.cursor++
 			if s.cursor >= len(s.stats) {
 				s.cursor = 0
+				s.viewport.GotoTop()
 			}
 		case "up":
 			s.cursor--
 			if s.cursor < 0 {
 				s.cursor = len(s.stats) - 1
+				scrollToBottom = true
 			}
+		case "g":
+			s.viewport.GotoTop()
+			s.cursor = 0
+		case "G":
+			scrollToBottom = true
+			s.cursor = len(s.stats) - 1
 		}
+	}
+
+	if scrollToBottom { // don't understand why this helps, but it won't work properly without it
+		s.viewport.GotoBottom()
 	}
 
 	var cmd tea.Cmd
 	s.viewport, cmd = s.viewport.Update(msg)
+
 	return s, cmd
 }
 
@@ -175,10 +190,14 @@ func (s *showPlayersModel) View() string {
 			key.WithHelp("↓", "down"),
 		),
 		key.NewBinding(
+			key.WithKeys("g", "G"),
+			key.WithHelp("g/G", "top/bottom"),
+		),
+		key.NewBinding(
 			key.WithKeys("q", "esc"),
 			key.WithHelp("q", "quit"),
 		),
-	})+" ("+styleInactive.Render(fmt.Sprintf("%3.f%%", s.viewport.ScrollPercent()*100))+")")
+	})+styleHelp.Render(fmt.Sprintf(" (%3.f%%)", s.viewport.ScrollPercent()*100)))
 
 	return strings.Join(lines, "\n")
 }

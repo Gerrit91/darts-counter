@@ -352,11 +352,11 @@ func (g *gameSettingsModel) View() string {
 				),
 				key.NewBinding(
 					key.WithKeys("+"),
-					key.WithHelp("+", "add player"),
+					key.WithHelp("+", "add"),
 				),
 				key.NewBinding(
 					key.WithKeys("enter"),
-					key.WithHelp("enter", "rotate players"),
+					key.WithHelp("enter", "rotate"),
 				),
 			},
 		}

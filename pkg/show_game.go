@@ -10,6 +10,8 @@ import (
 
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
 
+	"github.com/charmbracelet/bubbles/help"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -20,8 +22,10 @@ type showGameModel struct {
 	log *slog.Logger
 	ds  datastore.Datastore
 
+	gs datastore.GameStats
+
 	viewport viewport.Model
-	gs       datastore.GameStats
+	help     help.Model
 
 	backTo tea.Cmd
 }
@@ -32,6 +36,7 @@ func newShowGameModel(log *slog.Logger, ds datastore.Datastore) *showGameModel {
 		ds:       ds,
 		viewport: viewport.New(0, 20),
 		backTo:   switchViewTo(showGames),
+		help:     newHelp(),
 	}
 }
 
@@ -46,6 +51,10 @@ func (s *showGameModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "esc":
 			return s, s.backTo
+		case "g":
+			s.viewport.GotoTop()
+		case "G":
+			s.viewport.GotoBottom()
 		}
 	case tea.WindowSizeMsg:
 		headerHeight := 2
@@ -57,6 +66,7 @@ func (s *showGameModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	s.viewport, cmd = s.viewport.Update(msg)
+
 	return s, cmd
 }
 
@@ -105,7 +115,22 @@ func (s *showGameModel) View() string {
 
 	lines = append(lines, headline("Game Details"), "")
 	lines = append(lines, s.viewport.View())
-	lines = append(lines, styleInactive.Render(fmt.Sprintf("%3.f%%", s.viewport.ScrollPercent()*100)))
+
+	lines = append(lines, s.help.ShortHelpView([]key.Binding{
+		key.NewBinding(
+			key.WithKeys("up", "down"),
+			key.WithHelp("↑/↓", "up/down"),
+		),
+
+		key.NewBinding(
+			key.WithKeys("pgup", "pgdown"),
+			key.WithHelp("page up/down", "page up/down"),
+		),
+		key.NewBinding(
+			key.WithKeys("q"),
+			key.WithHelp("q", "quit"),
+		),
+	})+styleHelp.Render(fmt.Sprintf(" (%3.f%%)", s.viewport.ScrollPercent()*100)))
 
 	return strings.Join(lines, "\n")
 }
