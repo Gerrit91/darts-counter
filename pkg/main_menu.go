@@ -115,7 +115,7 @@ func (m *mainMenu) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.QuitMsg:
 		m.log.Info("received quit msg, exiting")
 		return m, tea.Quit
-	case cursor.BlinkMsg:
+	case cursor.BlinkMsg, tea.MouseMsg:
 		// do not log this
 	default:
 		m.log.Info("received update message", "msg", spew.Sdump(msg))

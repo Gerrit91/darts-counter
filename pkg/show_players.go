@@ -69,14 +69,7 @@ func (s *showPlayersModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		var (
-			headerHeight         = 2
-			footerHeight         = 1
-			verticalMarginHeight = headerHeight + footerHeight
-		)
-
-		s.viewport.Width = msg.Width
-		s.viewport.Height = msg.Height - verticalMarginHeight
+		adjustViewportResize(&s.viewport, msg, s.cursor, 2, 1)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc":
@@ -176,7 +169,9 @@ func (s *showPlayersModel) View() string {
 		viewportLines = append(viewportLines, selection+row(stat, styleInactive))
 	}
 
-	s.viewport.SetContent(strings.Join(viewportLines, "\n"))
+	if s.viewport.Height > 0 { // otherwise it crashes
+		s.viewport.SetContent(strings.Join(viewportLines, "\n"))
+	}
 
 	lines = append(lines, headline("Player Statistics"), "")
 	lines = append(lines, s.viewport.View())

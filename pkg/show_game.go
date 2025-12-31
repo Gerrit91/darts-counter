@@ -111,7 +111,9 @@ func (s *showGameModel) View() string {
 	rawMoves, _ := yaml.Marshal(s.gs.Moves)
 	viewportLines = append(viewportLines, string(rawMoves))
 
-	s.viewport.SetContent(strings.Join(viewportLines, "\n"))
+	if s.viewport.Height > 0 { // otherwise it crashes
+		s.viewport.SetContent(strings.Join(viewportLines, "\n"))
+	}
 
 	lines = append(lines, headline("Game Details"), "")
 	lines = append(lines, s.viewport.View())

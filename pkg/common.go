@@ -6,6 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -86,4 +87,29 @@ func headline(s string) string {
 		minus = white.Render("—")
 	)
 	return fmt.Sprintf("%s==%s %s %s==%s", right, minus, s, minus, left)
+}
+
+// adjusts a viewport with vertical margin and cursor
+func adjustViewportResize(v *viewport.Model, msg tea.WindowSizeMsg, cursor, headerHeight, footerHeight int) {
+	var (
+		verticalMarginHeight = headerHeight + footerHeight
+		newHeight            = msg.Height - verticalMarginHeight
+	)
+
+	// if the window became bigger, we can maybe scroll up a bit top prevent empty lines
+	// this is not ideal because PastBottom() does not consider the vertical margin
+	if v.PastBottom() && v.YOffset > 0 {
+		v.YOffset -= newHeight - v.Height + headerHeight
+		if v.YOffset < 0 {
+			v.YOffset = 0
+		}
+	}
+
+	v.Width = msg.Width
+	v.Height = newHeight
+
+	// if the window became smaller, the cursor might get out of view
+	if lastVisibleLine := v.YOffset - headerHeight + v.VisibleLineCount(); cursor > lastVisibleLine {
+		v.YOffset += cursor - lastVisibleLine
+	}
 }
