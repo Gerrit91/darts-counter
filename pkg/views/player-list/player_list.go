@@ -1,4 +1,4 @@
-package game
+package showplayers
 
 import (
 	"fmt"
@@ -9,20 +9,23 @@ import (
 	"time"
 
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
+	"github.com/Gerrit91/darts-counter/pkg/views/common"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 )
 
 type (
-	showPlayersModel struct {
+	model struct {
 		log *slog.Logger
 		ds  datastore.Datastore
 
 		viewport viewport.Model
+		table    *table.Table
 		help     help.Model
 		err      error
 		cursor   int
@@ -30,16 +33,17 @@ type (
 	}
 )
 
-func newShowPlayersModel(log *slog.Logger, ds datastore.Datastore) *showPlayersModel {
-	return &showPlayersModel{
+func New(log *slog.Logger, ds datastore.Datastore) *model {
+	return &model{
 		log:      log,
-		viewport: viewport.New(0, 20),
 		ds:       ds,
-		help:     newHelp(),
+		viewport: viewport.New(0, 20),
+		help:     common.NewHelp(),
+		table:    common.NewTable(),
 	}
 }
 
-func (s *showPlayersModel) Init() tea.Cmd {
+func (s *model) Init() tea.Cmd {
 	gameStats, err := s.ds.ListGameStats()
 	if err != nil {
 		s.err = err
@@ -64,16 +68,14 @@ func (s *showPlayersModel) Init() tea.Cmd {
 	return tea.WindowSize()
 }
 
-func (s *showPlayersModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	scrollToBottom := false
-
+func (s *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		adjustViewportResize(&s.viewport, msg, s.cursor, 2, 1)
+		common.AdjustViewportResize(&s.viewport, msg, s.cursor, 2, 1)
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "q", "esc":
-			return s, switchViewTo(mainMenuView)
+			return s, common.SwitchViewTo(common.MainMenuView)
 		case "down":
 			s.cursor++
 			if s.cursor >= len(s.stats) {
@@ -84,19 +86,15 @@ func (s *showPlayersModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			s.cursor--
 			if s.cursor < 0 {
 				s.cursor = len(s.stats) - 1
-				scrollToBottom = true
+				s.viewport.GotoBottom()
 			}
 		case "g":
-			s.viewport.GotoTop()
 			s.cursor = 0
+			s.viewport.GotoTop()
 		case "G":
-			scrollToBottom = true
 			s.cursor = len(s.stats) - 1
+			s.viewport.GotoBottom()
 		}
-	}
-
-	if scrollToBottom { // don't understand why this helps, but it won't work properly without it
-		s.viewport.GotoBottom()
 	}
 
 	var cmd tea.Cmd
@@ -105,11 +103,10 @@ func (s *showPlayersModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return s, cmd
 }
 
-func (s *showPlayersModel) View() string {
+func (s *model) View() string {
 	var (
-		lines         []string
-		viewportLines []string
-		row           = func(stat *datastore.PlayerStats, style lipgloss.Style) string {
+		lines []string
+		row   = func(stat *datastore.PlayerStats) []string {
 			favField := ""
 			favCount := 0
 			for field, count := range stat.FieldsCount {
@@ -120,33 +117,36 @@ func (s *showPlayersModel) View() string {
 			}
 			favField = fmt.Sprintf("%s (%dx)", favField, favCount)
 
-			s := fill(stat.ID, 15) +
-				fill(strconv.Itoa(stat.RanksCount[1]), 5) +
-				fill(strconv.Itoa(stat.RanksCount[len(stat.RanksCount)]), 7) +
-				fill(strconv.Itoa(stat.GamesPlayed), 6) +
-				fill(strconv.FormatFloat(stat.AverageRank, 'f', 3, 64), 7) +
-				fill(strconv.FormatFloat(stat.AverageScore, 'f', 1, 64), 8) +
-				fill(fmt.Sprintf("%d (%s)", stat.HighestScore.Total, strings.Join(stat.HighestScore.Fields, " → ")), 22) +
-				fill(favField, 10) +
-				stat.AverageDuration.Truncate(time.Millisecond).String()
-			return style.Render(s)
+			return []string{
+				stat.ID,
+				strconv.Itoa(stat.RanksCount[1]),
+				strconv.Itoa(stat.RanksCount[len(stat.RanksCount)]),
+				strconv.Itoa(stat.GamesPlayed),
+				strconv.FormatFloat(stat.AverageRank, 'f', 3, 64),
+				strconv.FormatFloat(stat.AverageScore, 'f', 1, 64),
+				fmt.Sprintf("%d (%s)", stat.HighestScore.Total, strings.Join(stat.HighestScore.Fields, " → ")),
+				favField,
+				stat.AverageDuration.Truncate(time.Millisecond).String(),
+			}
 		}
-		header = func() string {
-			s := fill("Name", 15) +
-				fill("Wins", 5) +
-				fill("Losses", 7) +
-				fill("Games", 6) +
-				fill("⌀-Rank", 7) +
-				fill("⌀-Score", 8) +
-				fill("Max Score", 22) +
-				fill("Fav Field", 10) +
-				"⌀-Sec/move"
-			return s
+		header = func() []string {
+			return []string{
+				"",
+				"Name",
+				"Wins",
+				"Losses",
+				"Games",
+				"⌀-Rank",
+				"⌀-Score",
+				"Max Score",
+				"Fav Field",
+				"⌀-Sec/move",
+			}
 		}
 	)
 
 	if s.err != nil {
-		lines = append(lines, styleError.Render(s.err.Error()))
+		lines = append(lines, common.StyleError.Render(s.err.Error()))
 		lines = append(lines, s.help.ShortHelpView([]key.Binding{
 			key.NewBinding(
 				key.WithKeys("q", "esc"),
@@ -156,24 +156,33 @@ func (s *showPlayersModel) View() string {
 		return strings.Join(lines, "\n")
 	}
 
-	viewportLines = append(viewportLines, "   "+header())
+	t := common.NewTable().StyleFunc(func(row, col int) lipgloss.Style {
+		switch {
+		case col == 0:
+			return common.StylePink
+		case row == s.cursor:
+			return common.StyleActive
+		default:
+			return common.StyleInactive
+		}
+	})
+
+	t = t.Headers(header()...)
 
 	for i, stat := range s.stats {
+		selection := ""
 		if s.cursor == i {
-			selection := fill("→", 3)
-			viewportLines = append(viewportLines, stylePink.Render(selection)+row(stat, styleActive))
-			continue
+			selection = "→"
 		}
 
-		selection := fill("", 3)
-		viewportLines = append(viewportLines, selection+row(stat, styleInactive))
+		t = t.Row(append([]string{selection}, row(stat)...)...)
 	}
 
 	if s.viewport.Height > 0 { // otherwise it crashes
-		s.viewport.SetContent(strings.Join(viewportLines, "\n"))
+		s.viewport.SetContent(t.Render())
 	}
 
-	lines = append(lines, headline("Player Statistics"), "")
+	lines = append(lines, common.Headline("Player Statistics"))
 	lines = append(lines, s.viewport.View())
 	lines = append(lines, s.help.ShortHelpView([]key.Binding{
 		key.NewBinding(
@@ -192,7 +201,7 @@ func (s *showPlayersModel) View() string {
 			key.WithKeys("q", "esc"),
 			key.WithHelp("q", "quit"),
 		),
-	})+styleHelp.Render(fmt.Sprintf(" (%3.f%%)", s.viewport.ScrollPercent()*100)))
+	})+common.StyleHelp.Render(fmt.Sprintf(" (%3.f%%)", s.viewport.ScrollPercent()*100)))
 
 	return strings.Join(lines, "\n")
 }

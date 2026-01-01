@@ -1,4 +1,4 @@
-package game
+package gamedetails
 
 import (
 	"fmt"
@@ -9,16 +9,16 @@ import (
 	"time"
 
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
+	"github.com/Gerrit91/darts-counter/pkg/views/common"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-
-	"sigs.k8s.io/yaml"
+	"github.com/charmbracelet/lipgloss"
 )
 
-type showGameModel struct {
+type Model struct {
 	log *slog.Logger
 	ds  datastore.Datastore
 
@@ -30,22 +30,22 @@ type showGameModel struct {
 	backTo tea.Cmd
 }
 
-func newShowGameModel(log *slog.Logger, ds datastore.Datastore) *showGameModel {
-	return &showGameModel{
+func New(log *slog.Logger, ds datastore.Datastore) *Model {
+	return &Model{
 		log:      log,
 		ds:       ds,
 		viewport: viewport.New(0, 20),
-		backTo:   switchViewTo(showGames),
-		help:     newHelp(),
+		backTo:   common.SwitchViewTo(common.GameDetailsView),
+		help:     common.NewHelp(),
 	}
 }
 
-func (s *showGameModel) Init() tea.Cmd {
+func (s *Model) Init() tea.Cmd {
 	s.viewport.GotoTop()
 	return tea.WindowSize()
 }
 
-func (s *showGameModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (s *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -70,24 +70,28 @@ func (s *showGameModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return s, cmd
 }
 
-func (s *showGameModel) View() string {
+func (s *Model) View() string {
 	var (
 		lines         []string
 		viewportLines []string
+		gs            = s.gs
 	)
 
-	viewportLines = append(viewportLines, fill("ID:", 6)+s.gs.ID)
-	viewportLines = append(viewportLines, fill("Type:", 6)+fmt.Sprintf("%s (%s, %s)", s.gs.GameType, s.gs.Checkin, s.gs.Checkout))
-	viewportLines = append(viewportLines, "")
+	t1 := common.NewTable()
+	t1.Row("ID:", gs.ID)
+	t1.Row("Type:", fmt.Sprintf("%s (%s, %s)", gs.GameType, gs.Checkin, gs.Checkout))
+	viewportLines = append(viewportLines, t1.Render())
 
-	viewportLines = append(viewportLines, fill("Rounds:", 8)+strconv.Itoa(s.gs.Rounds))
-	viewportLines = append(viewportLines, fill("Start:", 8)+s.gs.Start.Format(time.DateTime))
-	viewportLines = append(viewportLines, fill("End:", 8)+s.gs.End.Format(time.DateTime))
-	viewportLines = append(viewportLines, fill("Length:", 8)+s.gs.End.Sub(s.gs.Start).Truncate(time.Millisecond).String())
-	viewportLines = append(viewportLines, "")
+	t2 := common.NewTable()
+	t2.Row("Rounds:", strconv.Itoa(gs.Rounds))
+	t2.Row("Start:", gs.Start.Format(time.DateTime))
+	t2.Row("End:", gs.End.Format(time.DateTime))
+	t2.Row("Length:", gs.End.Sub(gs.Start).Truncate(time.Millisecond).String())
+	viewportLines = append(viewportLines, t2.Render(), "")
 
 	viewportLines = append(viewportLines, "Players: "+strings.Join(s.gs.Players, ", "))
 	viewportLines = append(viewportLines, "Ranks:")
+
 	type rank struct {
 		rank   int
 		player string
@@ -108,14 +112,45 @@ func (s *showGameModel) View() string {
 	viewportLines = append(viewportLines, "")
 
 	viewportLines = append(viewportLines, "Moves:")
-	rawMoves, _ := yaml.Marshal(s.gs.Moves)
-	viewportLines = append(viewportLines, string(rawMoves))
+
+	t3 := common.NewTable().Headers(
+		"Round",
+		"Player",
+		"Score",
+		"Fields",
+		"Remaining",
+		"Duration",
+	).StyleFunc(func(row, col int) lipgloss.Style {
+		switch row {
+		case -1:
+			return common.StyleInactive
+		default:
+			return lipgloss.NewStyle()
+		}
+	})
+	for _, move := range gs.Moves {
+		duration := move.Duration
+		if d, err := time.ParseDuration(duration); err == nil {
+			duration = d.Truncate(time.Millisecond).String()
+		}
+
+		t3 = t3.Row(
+			strconv.Itoa(move.Round),
+			move.Player,
+			fmt.Sprintf("%s (%s)", common.StylePink.Render("—"+strconv.Itoa(move.Score.Total)), strconv.Itoa(move.Remaining+move.Score.Total)),
+			strings.Join(move.Score.Fields, " → "),
+			strconv.Itoa(move.Remaining),
+			duration,
+		)
+	}
+
+	viewportLines = append(viewportLines, t3.Render())
 
 	if s.viewport.Height > 0 { // otherwise it crashes
 		s.viewport.SetContent(strings.Join(viewportLines, "\n"))
 	}
 
-	lines = append(lines, headline("Game Details"), "")
+	lines = append(lines, common.Headline("Game Details"))
 	lines = append(lines, s.viewport.View())
 
 	lines = append(lines, s.help.ShortHelpView([]key.Binding{
@@ -129,10 +164,22 @@ func (s *showGameModel) View() string {
 			key.WithHelp("page up/down", "page up/down"),
 		),
 		key.NewBinding(
+			key.WithKeys("g", "G"),
+			key.WithHelp("g/G", "top/bottom"),
+		),
+		key.NewBinding(
 			key.WithKeys("q"),
 			key.WithHelp("q", "quit"),
 		),
-	})+styleHelp.Render(fmt.Sprintf(" (%3.f%%)", s.viewport.ScrollPercent()*100)))
+	})+common.StyleHelp.Render(fmt.Sprintf(" (%3.f%%)", s.viewport.ScrollPercent()*100)))
 
 	return strings.Join(lines, "\n")
+}
+
+func (s *Model) SetBackTo(cmd tea.Cmd) {
+	s.backTo = cmd
+}
+
+func (s *Model) SetGameStats(gs datastore.GameStats) {
+	s.gs = gs
 }

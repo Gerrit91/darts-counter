@@ -1,4 +1,4 @@
-package game
+package gamesettings
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 	"github.com/Gerrit91/darts-counter/pkg/checkout"
 	"github.com/Gerrit91/darts-counter/pkg/config"
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
+	"github.com/Gerrit91/darts-counter/pkg/views/common"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -18,7 +19,7 @@ import (
 )
 
 type (
-	gameSettingsModel struct {
+	model struct {
 		log *slog.Logger
 		ds  datastore.Datastore
 
@@ -48,16 +49,16 @@ var (
 	leaveSettingsWithoutSaving settingsChoice = "leave-without-saving"
 )
 
-func newGameSettings(log *slog.Logger, ds datastore.Datastore) *gameSettingsModel {
-	return &gameSettingsModel{
+func New(log *slog.Logger, ds datastore.Datastore) *model {
+	return &model{
 		log:       log,
 		ds:        ds,
-		help:      newHelp(),
-		textInput: newTextInput(),
+		help:      common.NewHelp(),
+		textInput: common.NewTextInput(),
 	}
 }
 
-func (g *gameSettingsModel) Init() tea.Cmd {
+func (g *model) Init() tea.Cmd {
 	settings, err := g.ds.GetGameSettings()
 	if err != nil {
 		if errors.Is(err, datastore.ErrNotFound) {
@@ -82,7 +83,7 @@ func (g *gameSettingsModel) Init() tea.Cmd {
 	return g.textInput.Cursor.BlinkCmd()
 }
 
-func (g *gameSettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (g *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		gameTypes = []config.GameType{
 			config.GameType101,
@@ -173,11 +174,11 @@ func (g *gameSettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 		case "esc":
-			return g, switchViewTo(mainMenuView) // probably add confirm dialog if a setting was changed
+			return g, common.SwitchViewTo(common.MainMenuView) // probably add confirm dialog if a setting was changed
 		case "enter":
 			switch g.choices[g.cursor] {
 			case leaveSettingsWithoutSaving:
-				return g, switchViewTo(mainMenuView)
+				return g, common.SwitchViewTo(common.MainMenuView)
 			case saveSettings:
 				err := g.ds.UpdateGameSettings(g.settings)
 				if err != nil {
@@ -185,7 +186,7 @@ func (g *gameSettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return g, nil
 				}
 
-				return g, switchViewTo(mainMenuView) // if coming from start new game, it should probably go directly to the game
+				return g, common.SwitchViewTo(common.MainMenuView) // if coming from start new game, it should probably go directly to the game
 			case gameTypeSettings:
 				gameTypeToggle(false)
 			case checkinSettings:
@@ -299,7 +300,7 @@ func (g *gameSettingsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return g, cmd
 }
 
-func (g *gameSettingsModel) View() string {
+func (g *model) View() string {
 	var (
 		lines   []string
 		helpMap = map[any][]key.Binding{
@@ -363,25 +364,25 @@ func (g *gameSettingsModel) View() string {
 		helpKeyBinding []key.Binding
 	)
 
-	lines = append(lines, headline("Game Settings"), "")
+	lines = append(lines, common.Headline("Game Settings"), "")
 
 	if g.settings != nil {
 		for i := range len(g.choices) {
-			selection := fill("", 3)
-			style := styleInactive
+			selection := common.Fill("", 3)
+			style := common.StyleInactive
 			if g.cursor == i {
-				selection = stylePink.Render(fill("→", 3))
-				style = styleActive
+				selection = common.StylePink.Render(common.Fill("→", 3))
+				style = common.StyleActive
 				helpKeyBinding = helpMap[g.choices[i]]
 			}
 
 			switch choice := g.choices[i]; choice {
 			case gameTypeSettings:
-				lines = append(lines, selection+style.Render(fill("Type:", 13)+string(g.settings.Type)))
+				lines = append(lines, selection+style.Render(common.Fill("Type:", 13)+string(g.settings.Type)))
 			case checkinSettings:
-				lines = append(lines, selection+style.Render(fill("Check-In:", 12), string(g.settings.Checkin)))
+				lines = append(lines, selection+style.Render(common.Fill("Check-In:", 12), string(g.settings.Checkin)))
 			case checkoutSettings:
-				lines = append(lines, selection+style.Render(fill("Check-Out:", 12), string(g.settings.Checkout)))
+				lines = append(lines, selection+style.Render(common.Fill("Check-Out:", 12), string(g.settings.Checkout)))
 			case playerSettings:
 				lines = append(lines, selection+style.Render("Players:"))
 			case saveSettings:
@@ -422,7 +423,7 @@ func (g *gameSettingsModel) View() string {
 	}
 
 	if g.err != nil {
-		lines = append(lines, "", styleError.Render(g.err.Error()))
+		lines = append(lines, "", common.StyleError.Render(g.err.Error()))
 	}
 
 	lines = append(lines, "", g.help.ShortHelpView(helpKeyBinding))
@@ -430,7 +431,7 @@ func (g *gameSettingsModel) View() string {
 	return strings.Join(lines, "\n")
 }
 
-func (g *gameSettingsModel) updateChoices() {
+func (g *model) updateChoices() {
 	g.choices = []any{
 		gameTypeSettings,
 		checkinSettings,

@@ -1,16 +1,17 @@
-package game
+package confirm
 
 import (
 	"log/slog"
 	"strings"
 
+	"github.com/Gerrit91/darts-counter/pkg/views/common"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type (
-	confirmDialogModel struct {
+	model struct {
 		log *slog.Logger
 
 		yes    tea.Cmd
@@ -30,8 +31,8 @@ const (
 	confirmNo  confirmDialogChoice = "No"
 )
 
-func newConfirmDialog(log *slog.Logger, view string, yes, no tea.Cmd) *confirmDialogModel {
-	return &confirmDialogModel{
+func New(log *slog.Logger, view string, yes, no tea.Cmd) *model {
+	return &model{
 		log:    log,
 		yes:    yes,
 		no:     no,
@@ -40,16 +41,16 @@ func newConfirmDialog(log *slog.Logger, view string, yes, no tea.Cmd) *confirmDi
 			confirmNo,
 			confirmYes,
 		},
-		help: newHelp(),
+		help: common.NewHelp(),
 	}
 }
 
-func (c *confirmDialogModel) Init() tea.Cmd {
+func (c *model) Init() tea.Cmd {
 	c.cursor = 0
 	return nil
 }
 
-func (c *confirmDialogModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (c *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -82,10 +83,10 @@ func (c *confirmDialogModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return c, nil
 }
 
-func (c *confirmDialogModel) View() string {
+func (c *model) View() string {
 	var lines []string
 
-	lines = append(lines, "⚠️  "+styleUnderlined.Render("Please confirm"), "")
+	lines = append(lines, "⚠️  "+common.StyleUnderlined.Render("Please confirm"), "")
 
 	if c.phrase != "" {
 		lines = append(lines, c.phrase, "")
@@ -95,13 +96,13 @@ func (c *confirmDialogModel) View() string {
 
 	for i := range len(c.choices) {
 		if c.cursor == i {
-			selection := fill("→", 3)
-			lines = append(lines, stylePink.Render(selection)+styleActive.Render(string(c.choices[i])))
+			selection := common.Fill("→", 3)
+			lines = append(lines, common.StylePink.Render(selection)+common.StyleActive.Render(string(c.choices[i])))
 			continue
 		}
 
-		selection := fill("", 3)
-		lines = append(lines, selection+styleInactive.Render(string(c.choices[i])))
+		selection := common.Fill("", 3)
+		lines = append(lines, selection+common.StyleInactive.Render(string(c.choices[i])))
 	}
 
 	lines = append(lines, "", c.help.ShortHelpView([]key.Binding{

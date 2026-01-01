@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"os"
 
-	game "github.com/Gerrit91/darts-counter/pkg"
 	"github.com/Gerrit91/darts-counter/pkg/config"
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
+	mainmenu "github.com/Gerrit91/darts-counter/pkg/views/main-menu"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -68,7 +68,7 @@ func run(config *config.Config, log *slog.Logger) error {
 	log.Info("launching main menu")
 
 	var (
-		m = game.NewMainMenu(log, config, ds)
+		m = mainmenu.New(log, config, ds)
 		p = tea.NewProgram(m,
 			tea.WithAltScreen(),
 			tea.WithMouseCellMotion(),

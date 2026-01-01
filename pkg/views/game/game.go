@@ -13,6 +13,8 @@ import (
 	"github.com/Gerrit91/darts-counter/pkg/config"
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
 	"github.com/Gerrit91/darts-counter/pkg/player"
+	"github.com/Gerrit91/darts-counter/pkg/views/common"
+	gamedetails "github.com/Gerrit91/darts-counter/pkg/views/game-details"
 
 	"github.com/google/uuid"
 
@@ -24,7 +26,7 @@ import (
 )
 
 type (
-	game struct {
+	model struct {
 		log      *slog.Logger
 		ds       datastore.Datastore
 		settings *datastore.GameSettings
@@ -41,19 +43,19 @@ type (
 		msg           string
 		finished      bool
 
-		textInput textinput.Model
-		help      help.Model
-		show      *showGameModel
+		textInput   textinput.Model
+		help        help.Model
+		gameDetails *gamedetails.Model
 	}
 
 	undoMoveMsg struct{}
 )
 
-func undoMove() tea.Msg {
+func UndoMove() tea.Msg {
 	return undoMoveMsg{}
 }
 
-func newGame(log *slog.Logger, ds datastore.Datastore, show *showGameModel) (*game, error) {
+func New(log *slog.Logger, ds datastore.Datastore, show *gamedetails.Model) (*model, error) {
 	settings, err := ds.GetGameSettings()
 	if err != nil {
 		// TODO: if not found, redirect to settings view
@@ -87,7 +89,7 @@ func newGame(log *slog.Logger, ds datastore.Datastore, show *showGameModel) (*ga
 
 	now := time.Now()
 
-	return &game{
+	return &model{
 		log:           log,
 		ds:            ds,
 		settings:      settings,
@@ -102,18 +104,18 @@ func newGame(log *slog.Logger, ds datastore.Datastore, show *showGameModel) (*ga
 		err:           nil,
 		msg:           "",
 		finished:      false,
-		textInput:     newTextInput(),
-		help:          newHelp(),
-		show:          show,
+		textInput:     common.NewTextInput(),
+		help:          common.NewHelp(),
+		gameDetails:   show,
 	}, nil
 }
 
-func (g *game) Init() tea.Cmd {
-	g.show.backTo = switchViewTo(gameView)
+func (g *model) Init() tea.Cmd {
+	g.gameDetails.SetBackTo(common.SwitchViewTo(common.GameView))
 	return g.textInput.Cursor.BlinkCmd()
 }
 
-func (g *game) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (g *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		g.help.Width = msg.Width
@@ -163,12 +165,12 @@ func (g *game) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 		case "q", "esc":
-			return g, switchViewTo(closeGameDialogView)
+			return g, common.SwitchViewTo(common.CloseGameDialogView)
 		case "v":
-			g.show.gs = *g.gameStats()
-			return g, switchViewTo(showGame)
+			g.gameDetails.SetGameStats(*g.gameStats())
+			return g, common.SwitchViewTo(common.GameDetailsView)
 		case "u":
-			return g, switchViewTo(undoMoveView)
+			return g, common.SwitchViewTo(common.UndoMoveView)
 		case "s":
 			g.tick(nil, 0)
 			return g, nil
@@ -182,7 +184,7 @@ func (g *game) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					g.log.Error("error persisting finished game to database", "error", err)
 				}
 
-				return g, switchViewTo(mainMenuView)
+				return g, common.SwitchViewTo(common.MainMenuView)
 			}
 
 			scores, total, err := g.parseScore(g.textInput.Value())
@@ -205,7 +207,7 @@ func (g *game) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return g, nil
 }
 
-func (g *game) View() string {
+func (g *model) View() string {
 	var (
 		lines        []string
 		longestName  int
@@ -221,7 +223,7 @@ func (g *game) View() string {
 		}
 	}
 
-	lines = append(lines, headline(fmt.Sprintf("Game %s: Round %d", g.settings.Type, g.iter.GetRound())))
+	lines = append(lines, common.Headline(fmt.Sprintf("Game %s: Round %d", g.settings.Type, g.iter.GetRound())))
 
 	lines = append(lines, "")
 
@@ -231,13 +233,13 @@ func (g *game) View() string {
 			infos              []string
 			currentPlayerArrow = ""
 
-			scoreStyle = styleGreen
+			scoreStyle = common.StyleGreen
 		)
 
-		playerStyle := styleInactive
+		playerStyle := common.StyleInactive
 		if g.currentPlayer != nil && p == g.currentPlayer {
 			currentPlayerArrow = "→"
-			playerStyle = styleActive
+			playerStyle = common.StyleActive
 		}
 
 		if p.GetRank() > 0 {
@@ -251,7 +253,7 @@ func (g *game) View() string {
 
 			for _, m := range moves {
 				if m.Player == p.GetName() {
-					infos = append(infos, stylePink.Render(fmt.Sprintf("(—%d)", m.Score.Total)))
+					infos = append(infos, common.StylePink.Render(fmt.Sprintf("(—%d)", m.Score.Total)))
 					break
 				}
 			}
@@ -262,16 +264,16 @@ func (g *game) View() string {
 			switch len(variants) {
 			case 0:
 			case 1, 2:
-				infos = append(infos, styleInactive.Render(variants.String()))
+				infos = append(infos, common.StyleInactive.Render(variants.String()))
 			default:
-				infos = append(infos, styleInactive.Render(variants[:3].String()+", ..."))
+				infos = append(infos, common.StyleInactive.Render(variants[:3].String()+", ..."))
 			}
 		}
 
 		lines = append(lines,
-			stylePink.Render(fill(currentPlayerArrow, 3))+
-				playerStyle.Render(fill(playerName, longestName+8))+
-				scoreStyle.Render(fill(strconv.Itoa(p.GetRemaining()), longestScore+3))+
+			common.StylePink.Render(common.Fill(currentPlayerArrow, 3))+
+				playerStyle.Render(common.Fill(playerName, longestName+8))+
+				scoreStyle.Render(common.Fill(strconv.Itoa(p.GetRemaining()), longestScore+3))+
 				strings.Join(infos, " "),
 		)
 	}
@@ -279,7 +281,7 @@ func (g *game) View() string {
 	lines = append(lines, "")
 
 	if g.err != nil {
-		lines = append(lines, styleError.Render(g.err.Error()))
+		lines = append(lines, common.StyleError.Render(g.err.Error()))
 	}
 	if g.msg != "" {
 		lines = append(lines, g.msg)
@@ -331,7 +333,7 @@ func (g *game) View() string {
 	return strings.Join(lines, "\n")
 }
 
-func (g *game) tick(scores []*checkout.Score, total int) {
+func (g *model) tick(scores []*checkout.Score, total int) {
 	if g.finished {
 		return
 	}
@@ -392,7 +394,7 @@ func (g *game) tick(scores []*checkout.Score, total int) {
 	}
 }
 
-func (g *game) parseScore(input string) ([]*checkout.Score, int, error) {
+func (g *model) parseScore(input string) ([]*checkout.Score, int, error) {
 	var (
 		// allow both comma and space separated
 		segments = strings.Fields(strings.Join(strings.Split(strings.TrimSpace(input), ","), " "))
@@ -432,7 +434,7 @@ func (g *game) parseScore(input string) ([]*checkout.Score, int, error) {
 	return scores, total, nil
 }
 
-func (g *game) persist() error {
+func (g *model) persist() error {
 	err := g.ds.CreateGameStats(g.gameStats())
 	if err != nil {
 		return err
@@ -443,7 +445,7 @@ func (g *game) persist() error {
 	return nil
 }
 
-func (g *game) gameStats() *datastore.GameStats {
+func (g *model) gameStats() *datastore.GameStats {
 	var (
 		playerNames []string
 		ranks       = map[int]string{}
