@@ -3,8 +3,12 @@ package playerdetails
 import (
 	"fmt"
 	"log/slog"
+	"sort"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/Gerrit91/darts-counter/pkg/checkout"
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
 	"github.com/Gerrit91/darts-counter/pkg/views/common"
 
@@ -12,6 +16,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type Model struct {
@@ -72,6 +77,62 @@ func (s *Model) View() string {
 		viewportLines []string
 		ps            = s.ps
 	)
+
+	ranksTable := common.NewTable()
+	var orderedRanks []int
+	for rank := range ps.RanksCount {
+		orderedRanks = append(orderedRanks, rank)
+	}
+	sort.SliceStable(orderedRanks, func(i, j int) bool {
+		return orderedRanks[i] < orderedRanks[j]
+	})
+	for _, rank := range orderedRanks {
+		ranksTable.Row(fmt.Sprintf("%d. %d", rank, ps.RanksCount[rank]))
+	}
+
+	fieldsTable := common.NewTable().StyleFunc(func(row, col int) lipgloss.Style {
+		switch {
+		case col == 0:
+			return common.StylePink
+		case row == -1:
+			return common.StylePink
+		}
+		return common.StyleInactive
+	})
+
+	headers := []string{" "}
+	for _, score := range checkout.Singles() {
+		headers = append(headers, common.Fill(score.String(), 2))
+	}
+	fieldsTable.Headers(headers...)
+
+	for _, m := range []checkout.Multiplier{checkout.None, checkout.Double, checkout.Triple} {
+		row := []string{string(m)}
+		for _, score := range checkout.Singles() {
+			if m == checkout.Triple && score.Value() == checkout.BullsEye {
+				row = append(row, "")
+				continue
+			}
+			row = append(row, strconv.Itoa(ps.FieldsCount[score.WithMultiplier(m).String()]))
+		}
+		fieldsTable.Row(row...)
+	}
+
+	infoTable := common.NewTable()
+	infoTable.Row("Games Played:", strconv.Itoa(ps.GamesPlayed))
+	infoTable.Row("Total Moves:", strconv.Itoa(ps.TotalMoves))
+	infoTable.Row("Total Move Time:", ps.TotalDuration.Truncate(time.Second).String())
+	infoTable.Row("⌀-Duration per Move:", ps.AverageDuration.Truncate(time.Millisecond).String())
+
+	viewportLines = append(viewportLines, infoTable.Render())
+
+	viewportLines = append(viewportLines, "", fmt.Sprintf("Ranks (⌀ %s):", strconv.FormatFloat(ps.AverageRank, 'f', 3, 64)))
+	viewportLines = append(viewportLines, ranksTable.Render())
+
+	viewportLines = append(viewportLines, "", "Field Counts:")
+	viewportLines = append(viewportLines, fieldsTable.Render())
+	viewportLines = append(viewportLines, "⌀-Score: "+strconv.FormatFloat(ps.AverageScore, 'f', 1, 64))
+	viewportLines = append(viewportLines, "Highest Score: "+fmt.Sprintf("%d (%s)", ps.HighestScore.Total, strings.Join(ps.HighestScore.Fields, " → ")))
 
 	if s.viewport.Height > 0 { // otherwise it crashes
 		s.viewport.SetContent(strings.Join(viewportLines, "\n"))

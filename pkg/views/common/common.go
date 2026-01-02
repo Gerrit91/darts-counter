@@ -84,7 +84,9 @@ func NewTable() *table.Table {
 		}
 		t = table.New().Border(noBorder).
 			BorderLeft(false).
-			BorderHeader(false)
+			BorderHeader(false).StyleFunc(func(row, col int) lipgloss.Style {
+			return StyleInactive
+		})
 	)
 	return t
 }

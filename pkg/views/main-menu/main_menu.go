@@ -13,6 +13,7 @@ import (
 	gamedetails "github.com/Gerrit91/darts-counter/pkg/views/game-details"
 	gamelist "github.com/Gerrit91/darts-counter/pkg/views/game-list"
 	gamesettings "github.com/Gerrit91/darts-counter/pkg/views/game-settings"
+	playerdetails "github.com/Gerrit91/darts-counter/pkg/views/player-details"
 	playerlist "github.com/Gerrit91/darts-counter/pkg/views/player-list"
 
 	"github.com/charmbracelet/bubbles/cursor"
@@ -62,6 +63,8 @@ func New(log *slog.Logger, c *config.Config, ds datastore.Datastore) *model {
 		gameDetailsModel: gamedetails.New(log, ds),
 	}
 
+	playerDetailsModel := playerdetails.New(log, ds)
+
 	m.views = map[common.View]tea.Model{
 		common.MainMenuView:     m,
 		common.GameView:         nil,
@@ -86,7 +89,12 @@ func New(log *slog.Logger, c *config.Config, ds datastore.Datastore) *model {
 		),
 		common.GameListView:    gamelist.New(log, ds, m.gameDetailsModel),
 		common.GameDetailsView: m.gameDetailsModel,
-		common.PlayerListView:  playerlist.New(log, ds),
+		common.PlayerListView: playerlist.New(
+			log,
+			ds,
+			playerDetailsModel,
+		),
+		common.PlayerDetailsView: playerDetailsModel,
 	}
 
 	return m

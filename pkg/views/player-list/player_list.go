@@ -10,6 +10,7 @@ import (
 
 	"github.com/Gerrit91/darts-counter/pkg/datastore"
 	"github.com/Gerrit91/darts-counter/pkg/views/common"
+	playerdetails "github.com/Gerrit91/darts-counter/pkg/views/player-details"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -24,22 +25,24 @@ type (
 		log *slog.Logger
 		ds  datastore.Datastore
 
-		viewport viewport.Model
-		table    *table.Table
-		help     help.Model
-		err      error
-		cursor   int
-		stats    []*datastore.PlayerStats
+		viewport      viewport.Model
+		table         *table.Table
+		help          help.Model
+		err           error
+		cursor        int
+		stats         []*datastore.PlayerStats
+		playerDetails *playerdetails.Model
 	}
 )
 
-func New(log *slog.Logger, ds datastore.Datastore) *model {
+func New(log *slog.Logger, ds datastore.Datastore, playerDetails *playerdetails.Model) *model {
 	return &model{
-		log:      log,
-		ds:       ds,
-		viewport: viewport.New(0, 20),
-		help:     common.NewHelp(),
-		table:    common.NewTable(),
+		log:           log,
+		ds:            ds,
+		viewport:      viewport.New(0, 20),
+		help:          common.NewHelp(),
+		table:         common.NewTable(),
+		playerDetails: playerDetails,
 	}
 }
 
@@ -94,6 +97,10 @@ func (s *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "G":
 			s.cursor = len(s.stats) - 1
 			s.viewport.GotoBottom()
+		case "enter":
+			ps := s.stats[s.cursor]
+			s.playerDetails.SetPlayerStats(ps)
+			return s, common.SwitchViewTo(common.PlayerDetailsView)
 		}
 	}
 
@@ -196,6 +203,10 @@ func (s *model) View() string {
 		key.NewBinding(
 			key.WithKeys("g", "G"),
 			key.WithHelp("g/G", "top/bottom"),
+		),
+		key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("enter", "show details"),
 		),
 		key.NewBinding(
 			key.WithKeys("q", "esc"),

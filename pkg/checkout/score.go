@@ -114,7 +114,7 @@ func (m Multiplier) Value() int {
 	}
 }
 
-func singles() []*Score {
+func Singles() []*Score {
 	var s []*Score
 
 	for i := range 20 {

@@ -63,7 +63,7 @@ func (c *calculator) recurse(remaining, throw int) {
 
 	// look for immediate double-out wins
 	if remaining%2 == 0 && (remaining <= 40 || remaining == 2*BullsEye) {
-		for _, single := range singles() {
+		for _, single := range Singles() {
 			double := single.WithMultiplier(Double)
 
 			if remaining-double.Value() == 0 {
@@ -77,7 +77,7 @@ func (c *calculator) recurse(remaining, throw int) {
 
 	// look for immediate triple-out wins
 	if c.out == CheckoutTypeStraightOut && remaining <= 60 {
-		for _, single := range singles() {
+		for _, single := range Singles() {
 			if single.Value() == BullsEye {
 				// there is no triple bullseye
 				continue
@@ -106,7 +106,7 @@ func (c *calculator) recurse(remaining, throw int) {
 		}
 
 		for _, multiplier := range []Multiplier{None, Double, Triple} {
-			singles := singles()
+			singles := Singles()
 			slices.Reverse(singles)
 
 			for _, single := range singles {
