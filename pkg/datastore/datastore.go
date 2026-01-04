@@ -51,10 +51,11 @@ type (
 	}
 
 	GameSettings struct {
-		Type     config.GameType       `json:"game_type"`
-		Checkout checkout.CheckoutType `json:"checkout"`
-		Checkin  checkout.CheckinType  `json:"checkin"`
-		Players  []Player              `json:"players"`
+		Type            config.GameType       `json:"game_type"`
+		Checkout        checkout.CheckoutType `json:"checkout"`
+		Checkin         checkout.CheckinType  `json:"checkin"`
+		Players         []Player              `json:"players"`
+		SaveGameToStats bool                  `json:"save_game_to_stats"`
 	}
 
 	Player struct {
@@ -114,6 +115,10 @@ func validateGameSettings(g *GameSettings) error {
 		// noop
 	default:
 		return fmt.Errorf("unknown check-out type: %s", g.Checkout)
+	}
+
+	if len(g.Players) < 1 {
+		return fmt.Errorf("a game needs at least one player")
 	}
 
 	names := map[string]bool{}

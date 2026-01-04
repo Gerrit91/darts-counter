@@ -46,6 +46,7 @@ var (
 	checkoutSettings           settingsChoice = "check-out"
 	playerSettings             settingsChoice = "player"
 	saveSettings               settingsChoice = "save"
+	saveGameToStats            settingsChoice = "save-game-to-stats"
 	leaveSettingsWithoutSaving settingsChoice = "leave-without-saving"
 )
 
@@ -70,6 +71,7 @@ func (g *model) Init() tea.Cmd {
 					{Name: "Player 1"},
 					{Name: "Player 2"},
 				},
+				SaveGameToStats: true,
 			}
 		} else {
 			g.err = err
@@ -195,6 +197,8 @@ func (g *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				checkoutToggle()
 			case playerSettings:
 				rotatePlayers()
+			case saveGameToStats:
+				g.settings.SaveGameToStats = !g.settings.SaveGameToStats
 			default:
 				switch choice := g.choices[g.cursor].(type) {
 				case playerChoice:
@@ -212,6 +216,8 @@ func (g *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				checkinToggle()
 			case checkoutSettings:
 				checkoutToggle()
+			case saveGameToStats:
+				g.settings.SaveGameToStats = !g.settings.SaveGameToStats
 			}
 		case "left":
 			switch g.choices[g.cursor] {
@@ -221,6 +227,8 @@ func (g *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				checkinToggle()
 			case checkoutSettings:
 				checkoutToggle()
+			case saveGameToStats:
+				g.settings.SaveGameToStats = !g.settings.SaveGameToStats
 			}
 		case "down":
 			g.cursor++
@@ -334,6 +342,16 @@ func (g *model) View() string {
 					key.WithHelp("←/→", "toggle"),
 				),
 			},
+			saveGameToStats: {
+				key.NewBinding(
+					key.WithKeys("up", "down"),
+					key.WithHelp("↑/↓", "up/down"),
+				),
+				key.NewBinding(
+					key.WithKeys("enter", "left", "right"),
+					key.WithHelp("←/→", "toggle"),
+				),
+			},
 			saveSettings: {
 				key.NewBinding(
 					key.WithKeys("enter"),
@@ -389,6 +407,8 @@ func (g *model) View() string {
 				lines = append(lines, selection+style.Render("Save"))
 			case leaveSettingsWithoutSaving:
 				lines = append(lines, selection+style.Render("Leave"))
+			case saveGameToStats:
+				lines = append(lines, selection+style.Render("Persist Game Statistics:", common.FormatBool(g.settings.SaveGameToStats)))
 			default:
 				switch choice := choice.(type) {
 				case playerChoice:
@@ -447,6 +467,7 @@ func (g *model) updateChoices() {
 	}
 
 	g.choices = append(g.choices,
+		saveGameToStats,
 		saveSettings,
 		leaveSettingsWithoutSaving,
 	)

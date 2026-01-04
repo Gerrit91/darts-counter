@@ -379,7 +379,7 @@ func (g *model) tick(scores []*checkout.Score, total int) {
 	p, err = g.iter.Next()
 	g.currentPlayer = p
 
-	if errors.Is(err, player.ErrOnlyOnePlayerLeft) {
+	if errors.Is(err, player.ErrGameFinished) {
 		if p != nil {
 			p.SetRank(g.rank)
 		}
@@ -435,6 +435,11 @@ func (g *model) parseScore(input string) ([]*checkout.Score, int, error) {
 }
 
 func (g *model) persist() error {
+	if !g.settings.SaveGameToStats {
+		g.log.Info("not saving game to database because disabled in game settings")
+		return nil
+	}
+
 	err := g.ds.CreateGameStats(g.gameStats())
 	if err != nil {
 		return err

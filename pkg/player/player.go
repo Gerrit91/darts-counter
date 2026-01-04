@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	ErrOnlyOnePlayerLeft = fmt.Errorf("only one player left in the game")
-	ErrInvalidInput      = fmt.Errorf("invalid input")
+	ErrGameFinished = fmt.Errorf("no more players left in the game")
+	ErrInvalidInput = fmt.Errorf("invalid input")
 )
 
 type (

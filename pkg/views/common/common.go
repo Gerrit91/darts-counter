@@ -192,3 +192,10 @@ func DistributeColors(from, to string, values map[int]string) map[int]string {
 
 	return values
 }
+
+func FormatBool(b bool) string {
+	if b {
+		return "yes"
+	}
+	return "no"
+}

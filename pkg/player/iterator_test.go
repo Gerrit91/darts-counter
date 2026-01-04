@@ -102,7 +102,7 @@ func TestIterator(t *testing.T) {
 
 	p, err = iter.Next()
 	require.Error(t, err)
-	require.ErrorIs(t, err, ErrOnlyOnePlayerLeft)
+	require.ErrorIs(t, err, ErrGameFinished)
 	assert.Equal(t, 3, iter.GetRound())
 	require.Equal(t, &Player{name: "3"}, p)
 }

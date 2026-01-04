@@ -10,20 +10,23 @@ type (
 		round   int
 		players Players
 		nextIdx int
+
+		singlePlayerGame bool
 	}
 )
 
 func (ps Players) Iterator() *Iterator {
 	return &Iterator{
-		players: ps,
-		nextIdx: 0,
-		round:   0,
+		players:          ps,
+		nextIdx:          0,
+		round:            0,
+		singlePlayerGame: len(ps) == 1,
 	}
 }
 
 func (i *Iterator) Next() (*Player, error) {
 	if p, finished := i.isFinished(); finished {
-		return p, ErrOnlyOnePlayerLeft
+		return p, ErrGameFinished
 	}
 
 	for idx := range len(i.players) {
@@ -45,7 +48,7 @@ func (i *Iterator) Next() (*Player, error) {
 		return nextPlayer, nil
 	}
 
-	return nil, fmt.Errorf("all players have finished")
+	return nil, ErrGameFinished
 }
 
 func (i *Iterator) SetBackTo(name string) (*Player, error) {
@@ -87,7 +90,11 @@ func (i *Iterator) isFinished() (*Player, bool) {
 	case 0:
 		return nil, true
 	case 1:
-		return stillPlaying[0], true
+		finished := true
+		if i.singlePlayerGame {
+			finished = false
+		}
+		return stillPlaying[0], finished
 	default:
 		return nil, false
 	}
