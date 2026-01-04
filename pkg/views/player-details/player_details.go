@@ -76,18 +76,27 @@ func (s *Model) View() string {
 		lines         []string
 		viewportLines []string
 		ps            = s.ps
+
+		ranksTable  = common.NewTable()
+		ranksColors = map[int]string{}
 	)
 
-	ranksTable := common.NewTable()
 	var orderedRanks []int
 	for rank := range ps.RanksCount {
 		orderedRanks = append(orderedRanks, rank)
+		ranksColors[rank] = ""
 	}
 	sort.SliceStable(orderedRanks, func(i, j int) bool {
 		return orderedRanks[i] < orderedRanks[j]
 	})
+
+	common.DistributeColors(string(common.ColorGreen), string(common.ColorInactive), ranksColors)
+
 	for _, rank := range orderedRanks {
-		ranksTable.Row(fmt.Sprintf("%d. %d", rank, ps.RanksCount[rank]))
+		ranksTable.Row(
+			fmt.Sprintf("   %s.", lipgloss.NewStyle().Foreground(lipgloss.Color(ranksColors[rank])).Render(strconv.Itoa(rank))),
+			common.StyleActive.Render(strconv.Itoa(ps.RanksCount[rank])),
+		)
 	}
 
 	fieldsTable := common.NewTable().StyleFunc(func(row, col int) lipgloss.Style {
@@ -106,6 +115,19 @@ func (s *Model) View() string {
 	}
 	fieldsTable.Headers(headers...)
 
+	countToCol := map[int]string{}
+	for _, m := range []checkout.Multiplier{checkout.None, checkout.Double, checkout.Triple} {
+		for _, score := range checkout.Singles() {
+			if m == checkout.Triple && score.Value() == checkout.BullsEye {
+				continue
+			}
+			count := score.WithMultiplier(m).String()
+			countToCol[ps.FieldsCount[count]] = ""
+		}
+	}
+
+	common.DistributeColors(string(common.ColorInactive), string(common.ColorGreen), countToCol)
+
 	for _, m := range []checkout.Multiplier{checkout.None, checkout.Double, checkout.Triple} {
 		row := []string{string(m)}
 		for _, score := range checkout.Singles() {
@@ -113,12 +135,18 @@ func (s *Model) View() string {
 				row = append(row, "")
 				continue
 			}
-			row = append(row, strconv.Itoa(ps.FieldsCount[score.WithMultiplier(m).String()]))
+			count := ps.FieldsCount[score.WithMultiplier(m).String()]
+			row = append(row, lipgloss.NewStyle().Foreground(lipgloss.Color(countToCol[count])).Render(strconv.Itoa(count)))
 		}
 		fieldsTable.Row(row...)
 	}
 
-	infoTable := common.NewTable()
+	infoTable := common.NewTable().StyleFunc(func(row, col int) lipgloss.Style {
+		if col == 0 {
+			return common.StyleInactive
+		}
+		return common.StyleActive
+	})
 	infoTable.Row("Games Played:", strconv.Itoa(ps.GamesPlayed))
 	infoTable.Row("Total Moves:", strconv.Itoa(ps.TotalMoves))
 	infoTable.Row("Total Move Time:", ps.TotalDuration.Truncate(time.Second).String())
@@ -131,8 +159,8 @@ func (s *Model) View() string {
 
 	viewportLines = append(viewportLines, "", "Field Counts:")
 	viewportLines = append(viewportLines, fieldsTable.Render())
-	viewportLines = append(viewportLines, "⌀-Score: "+strconv.FormatFloat(ps.AverageScore, 'f', 1, 64))
-	viewportLines = append(viewportLines, "Highest Score: "+fmt.Sprintf("%d (%s)", ps.HighestScore.Total, strings.Join(ps.HighestScore.Fields, " → ")))
+	viewportLines = append(viewportLines, "⌀-Score: "+common.StyleActive.Render(strconv.FormatFloat(ps.AverageScore, 'f', 1, 64)))
+	viewportLines = append(viewportLines, "Highest Score: "+common.StyleActive.Render(fmt.Sprintf("%d (%s)", ps.HighestScore.Total, strings.Join(ps.HighestScore.Fields, " → "))))
 
 	if s.viewport.Height > 0 { // otherwise it crashes
 		s.viewport.SetContent(strings.Join(viewportLines, "\n"))

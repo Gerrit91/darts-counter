@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 type (
@@ -23,27 +24,37 @@ type (
 const (
 	CloseGameDialogView View = "close-game-dialog"
 	DeleteGameStatView  View = "delete-game-stat-dialog"
-	GameView            View = "game"
-	GameSettingsView    View = "game-settings"
-	MainMenuView        View = "main-menu"
 	GameDetailsView     View = "game-details"
 	GameListView        View = "game-list"
-	PlayerListView      View = "player-list"
+	GameSettingsView    View = "game-settings"
+	GameView            View = "game"
+	MainMenuView        View = "main-menu"
 	PlayerDetailsView   View = "player-details"
+	PlayerListView      View = "player-list"
 	UndoMoveView        View = "undo-move-dialog"
 )
 
+const (
+	ColorActive   = lipgloss.Color("#FFFFFF")
+	ColorGreen    = lipgloss.Color("#32CD32")
+	ColorHelp     = lipgloss.Color("#4A4A4A")
+	ColorInactive = lipgloss.Color("#909090")
+	ColorPink     = lipgloss.Color("#FF75B7")
+	ColorRed      = lipgloss.Color("#FF0000")
+	ColorWhite    = lipgloss.Color("#FFFFFF")
+)
+
 var (
-	StylePink       = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF75B7"))
-	StyleInactive   = lipgloss.NewStyle().Foreground(lipgloss.Color("#909090"))
-	StyleActive     = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
-	StyleGreen      = lipgloss.NewStyle().Foreground(lipgloss.Color("#32CD32"))
-	StyleError      = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
-	StyleHelp       = lipgloss.NewStyle().Foreground(lipgloss.Color("#4A4A4A"))
+	StyleActive     = lipgloss.NewStyle().Foreground(ColorActive)
+	StyleError      = lipgloss.NewStyle().Foreground(ColorRed)
+	StyleGreen      = lipgloss.NewStyle().Foreground(ColorGreen)
+	StyleHelp       = lipgloss.NewStyle().Foreground(ColorHelp)
+	StyleInactive   = lipgloss.NewStyle().Foreground(ColorInactive)
+	StylePink       = lipgloss.NewStyle().Foreground(ColorPink)
 	StyleUnderlined = lipgloss.NewStyle().Underline(true)
 
-	red   = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000"))
-	white = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF"))
+	red   = lipgloss.NewStyle().Foreground(ColorRed)
+	white = lipgloss.NewStyle().Foreground(ColorWhite)
 )
 
 func NewTextInput() textinput.Model {
@@ -145,4 +156,39 @@ func AdjustViewportResize(v *viewport.Model, msg tea.WindowSizeMsg, cursor, head
 	if lastVisibleLine := v.YOffset - headerHeight + v.VisibleLineCount(); cursor > lastVisibleLine {
 		v.YOffset += cursor - lastVisibleLine
 	}
+}
+
+func DistributeColors(from, to string, values map[int]string) map[int]string {
+	var (
+		fromHex, _ = colorful.Hex(from)
+		toHex, _   = colorful.Hex(to)
+
+		maxVal int
+	)
+
+	if len(values) == 0 {
+		return values
+	}
+
+	for val := range values {
+		if val > maxVal {
+			maxVal = val
+		}
+	}
+
+	for val := range values {
+		// using lerp func
+		t := float64(0)
+		if maxVal != 0 {
+			t = (float64(val) / float64(maxVal))
+		}
+
+		values[val] = colorful.Color{
+			R: fromHex.R + (toHex.R-fromHex.R)*t,
+			G: fromHex.G + (toHex.G-fromHex.G)*t,
+			B: fromHex.B + (toHex.B-fromHex.B)*t,
+		}.Hex()
+	}
+
+	return values
 }
