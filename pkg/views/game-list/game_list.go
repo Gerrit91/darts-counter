@@ -25,6 +25,7 @@ type (
 		gameDetails *gamedetails.Model
 		cursor      int
 		stats       []*datastore.GameStats
+		toDelete    *datastore.GameStats
 
 		viewport viewport.Model
 		help     help.Model
@@ -69,11 +70,14 @@ func (s *model) Init() tea.Cmd {
 func (s *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case deleteGameStatMsg:
-		stat := s.stats[s.cursor]
+		if s.toDelete == nil {
+			s.log.Error("no game stat marked for deletion")
+			return s, s.Init()
+		}
 
-		s.log.Info("deleting game stat", "id", stat.ID)
+		s.log.Info("deleting game stat", "id", s.toDelete.ID)
 
-		err := s.ds.DeleteGameStats(stat.ID)
+		err := s.ds.DeleteGameStats(s.toDelete.ID)
 		if err != nil {
 			s.err = err
 			return s, nil
@@ -87,6 +91,7 @@ func (s *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "esc":
 			return s, common.SwitchViewTo(common.MainMenuView)
 		case "d", "delete":
+			s.toDelete = s.stats[s.cursor]
 			return s, common.SwitchViewTo(common.DeleteGameStatView)
 		case "enter":
 			stat := s.stats[s.cursor]

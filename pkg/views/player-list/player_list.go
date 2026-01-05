@@ -114,8 +114,13 @@ func (s *model) View() string {
 	var (
 		lines []string
 		row   = func(stat *datastore.PlayerStats) []string {
-			favField := ""
-			favCount := 0
+			var (
+				favField = ""
+				favCount = 0
+				wins     = ""
+				losses   = ""
+			)
+
 			for field, count := range stat.FieldsCount {
 				if count > favCount {
 					favField = field
@@ -124,10 +129,15 @@ func (s *model) View() string {
 			}
 			favField = fmt.Sprintf("%s (%dx)", favField, favCount)
 
+			if len(stat.RanksCount) > 1 {
+				wins = strconv.Itoa(stat.RanksCount[1])
+				losses = strconv.Itoa(stat.RanksCount[len(stat.RanksCount)])
+			}
+
 			return []string{
 				stat.ID,
-				strconv.Itoa(stat.RanksCount[1]),
-				strconv.Itoa(stat.RanksCount[len(stat.RanksCount)]),
+				wins,
+				losses,
 				strconv.Itoa(stat.GamesPlayed),
 				strconv.FormatFloat(stat.AverageRank, 'f', 3, 64),
 				strconv.FormatFloat(stat.AverageScore, 'f', 1, 64),
