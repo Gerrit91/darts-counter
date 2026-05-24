@@ -56,6 +56,7 @@ func (s *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "G":
 			s.viewport.GotoBottom()
 		}
+
 	case tea.WindowSizeMsg:
 		headerHeight := 2
 		footerHeight := 1

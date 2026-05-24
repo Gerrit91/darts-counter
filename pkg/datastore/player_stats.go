@@ -62,7 +62,9 @@ func ToPlayerStats(stats []*GameStats) ([]*PlayerStats, error) {
 				// create entries in the ranks count
 				p.RanksCount[rank] += 0
 			}
+
 			p.GamesPlayed++
+
 			playerMap[id] = p
 		}
 
@@ -79,6 +81,7 @@ func ToPlayerStats(stats []*GameStats) ([]*PlayerStats, error) {
 		p.AverageDuration = time.Duration(int64(p.TotalDuration) / int64(p.TotalMoves))
 		p.AverageScore = float64(p.TotalScore) / float64(p.TotalMoves)
 		p.AverageRank = float64(p.totalRanks) / float64(p.GamesPlayed)
+
 		ps = append(ps, p)
 	}
 

@@ -92,6 +92,7 @@ func (r Ranks) OfPlayer(id string) int {
 			return rank
 		}
 	}
+
 	return 0
 }
 

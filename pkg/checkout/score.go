@@ -68,6 +68,7 @@ func ParseScore(input string) (*Score, error) {
 
 func (s *Score) WithMultiplier(m Multiplier) *Score {
 	s.multiplier = m
+
 	return s
 }
 
@@ -88,6 +89,7 @@ func (s *Score) GetMultiplier() Multiplier {
 
 func (s *Score) String() string {
 	representation := strconv.Itoa(s.score)
+
 	if s.score == BullsEye {
 		representation = "B"
 	}

@@ -58,6 +58,7 @@ func (b *boltImpl) ListGameStats(filterOpts ...filter) ([]*GameStats, error) {
 			}
 
 			return gs, nil
+
 		default:
 			return nil, fmt.Errorf("internal error: unsupported option %T", o)
 		}

@@ -153,6 +153,8 @@ func (c *calculator) append(cs *Checkout) bool {
 	}) {
 		return false
 	}
+
 	c.checkouts = append(c.checkouts, cs)
+
 	return c.limitReached()
 }

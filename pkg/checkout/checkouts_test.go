@@ -159,7 +159,6 @@ func Test_For(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		tt := tt
 		t.Run(fmt.Sprintf("score_%d_%s_limit_%d", tt.score, CheckoutTypeStraightOut, tt.limit), func(t *testing.T) {
 			if got := For(tt.score, NewCalcLimitOption(tt.limit), NewCheckoutTypeOption(CheckoutTypeStraightOut)); !reflect.DeepEqual(got.String(), tt.wantStraight) {
 				t.Errorf("%v, want %v", got, tt.wantStraight)

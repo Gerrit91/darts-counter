@@ -35,6 +35,7 @@ func For(score int, opts ...option) Checkouts {
 
 func forThrow(remaining, throw int, c *calculator) Checkouts {
 	c.recurse(remaining, throw)
+
 	return c.checkouts
 }
 
@@ -54,6 +55,7 @@ func (c *Checkout) orderScores(out CheckoutType) {
 		sort.Slice(c.scores, func(i, j int) bool {
 			return c.scores[j].Value() < c.scores[i].Value()
 		})
+
 	case CheckoutTypeDoubleOut:
 		withoutLast := c.scores[:len(c.scores)-1]
 
@@ -77,8 +79,10 @@ func (c *Checkout) String() string {
 
 func (cs Checkouts) String() string {
 	var res []string
+
 	for _, c := range cs {
 		res = append(res, c.String())
 	}
+
 	return strings.Join(res, ", ")
 }
